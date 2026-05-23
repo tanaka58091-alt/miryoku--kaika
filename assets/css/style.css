@@ -1849,3 +1849,292 @@ body.gate-locked{ overflow: hidden; }
   .lm-cell{ padding: 12px 8px; }
   .lm-val{ font-size: 12px; }
 }
+
+/* ============================================================
+   ★ NEW DESIGN: 7軸構成カード CSS
+   ============================================================ */
+
+/* ---------- 01: 本質 deep card ---------- */
+.essence-deep-card{
+  background: linear-gradient(180deg, #fdfaf5 0%, #f7f0e3 100%);
+  border: 1.5px solid #d4af37;
+  position: relative;
+}
+.essence-deco{
+  position:absolute; top:-12px; left:50%; transform: translateX(-50%);
+  background:#d4af37; color:#fff; padding: 3px 18px; border-radius: 20px;
+  font-size: 11px; font-weight:700; letter-spacing: 3px;
+}
+.essence-lead{
+  font-size: 16px; line-height: 1.85; padding: 16px 18px;
+  background: #fff8e7; border-left: 3px solid #d4af37; margin-bottom: 20px;
+  border-radius: 4px;
+}
+.essence-grid{ display:flex; flex-direction:column; gap: 10px; margin: 16px 0 20px; }
+.essence-row{
+  display:flex; gap: 12px; padding: 12px 14px;
+  background: #fff; border-radius: 6px; border: 1px solid #ece4d2;
+}
+.essence-label{
+  flex: 0 0 130px; font-weight:700; color:#8b6914; font-size: 13px;
+  display:flex; align-items:center;
+}
+.essence-val{ flex: 1; font-size: 14px; line-height: 1.7; color:#3a3a3a; }
+.essence-row-warn{ background:#fef5f5; border-color:#f0c8c8; }
+.essence-row-warn .essence-label{ color:#a04444; }
+.essence-row-young{ background:#f3faf5; border-color:#bfd9c4; }
+.essence-row-young .essence-label{ color:#3a7a4d; }
+.essence-row-age{ background:#fafafa; border-color:#d6d6d6; }
+.essence-row-age .essence-label{ color:#6e6e6e; }
+.essence-theme{
+  background: linear-gradient(135deg, #fff8e7 0%, #f7e9c9 100%);
+  border: 1.5px dashed #d4af37; padding: 18px 20px; border-radius: 8px;
+}
+.essence-theme-label{ font-weight:700; color:#8b6914; margin-bottom: 8px; font-size: 14px; }
+.essence-theme p{ font-size: 15px; line-height: 1.85; margin: 0; }
+
+/* ---------- 02: 表面・ギャップ ---------- */
+.omote-card{
+  background: linear-gradient(180deg, #fafaff 0%, #f0f0fa 100%);
+  border: 1.5px solid #7e7eb8; position: relative;
+}
+.omote-deco{
+  position:absolute; top:-12px; left:50%; transform: translateX(-50%);
+  background:#7e7eb8; color:#fff; padding: 3px 18px; border-radius: 20px;
+  font-size: 11px; font-weight:700; letter-spacing: 3px;
+}
+.omote-lead{
+  font-size: 15px; line-height: 1.85; padding: 14px 16px;
+  background: #fff; border-left: 3px solid #7e7eb8; margin-bottom: 18px;
+  border-radius: 4px;
+}
+.omote-block{ margin-bottom: 14px; padding: 12px 14px; background:#fff; border-radius: 6px; }
+.omote-label{ font-weight:700; color:#5a5a98; margin-bottom: 6px; font-size: 13px; }
+.omote-block p{ margin: 0; font-size: 14px; line-height: 1.7; }
+.omote-mode-grid{ display:grid; grid-template-columns: 1fr 1fr 1fr; gap: 10px; margin: 14px 0 18px; }
+.omote-mode{ background:#fff; padding: 12px; border-radius: 6px; border: 1px solid #dcdce8; }
+.mode-label{ font-weight:700; color:#5a5a98; margin-bottom: 6px; font-size: 12px; }
+.omote-mode p{ margin:0; font-size: 13px; line-height: 1.6; }
+.omote-gap-box{
+  background: linear-gradient(135deg, #efeffa 0%, #e2e2f1 100%);
+  border: 1.5px solid #7e7eb8; padding: 18px 20px; border-radius: 8px; margin-top: 18px;
+}
+.omote-gap-label{ font-weight:700; color:#3e3e7e; margin-bottom: 10px; font-size: 14px; }
+.omote-gap-line{
+  font-size: 16px; line-height: 1.85; font-weight: 600; color:#3e3e7e;
+  padding: 10px 14px; background:#fff; border-radius: 6px; margin: 0 0 12px;
+}
+.omote-gap-reason{ font-size: 14px; line-height: 1.85; margin: 0; }
+@media (max-width: 720px){
+  .omote-mode-grid{ grid-template-columns: 1fr; }
+}
+
+/* ---------- 03: 心の歪み（最重要） ---------- */
+.menu-card-hizumi{ border-color: #c44 !important; }
+.menu-card-hizumi .menu-tag{ background:#c44; color:#fff; }
+.cat-header-hizumi h2{ color:#c44; }
+.menu-tag-hizumi{ background:#c44 !important; color:#fff !important; }
+.hizumi-card{
+  background: linear-gradient(180deg, #fffafa 0%, #fdeded 100%);
+  border: 2px solid #c44; position: relative;
+}
+.hizumi-deco{
+  position:absolute; top:-12px; left:50%; transform: translateX(-50%);
+  background:#c44; color:#fff; padding: 3px 18px; border-radius: 20px;
+  font-size: 11px; font-weight:700; letter-spacing: 3px;
+}
+.hizumi-catch{
+  font-size: 18px; line-height: 1.7; font-style: italic; text-align: center;
+  padding: 18px 16px; background:#fff; border: 1px dashed #c88; border-radius: 8px;
+  margin-bottom: 18px; color:#8a3a3a;
+}
+.hizumi-bridge{
+  background:#fff5f5; border-left: 4px solid #c44; padding: 14px 18px; border-radius: 4px; margin: 16px 0;
+}
+.hizumi-bridge-label{ font-weight:700; color:#a02828; margin-bottom: 6px; font-size: 13px; }
+.hizumi-bridge p{ margin: 0; font-size: 14px; line-height: 1.85; }
+.hizumi-symptoms{
+  background:#fff; padding: 14px 18px 14px 36px; border-radius: 6px;
+  border: 1px solid #f0c8c8;
+}
+.hizumi-symptoms li{
+  margin: 8px 0; font-size: 14px; line-height: 1.6; color:#3a3a3a;
+}
+.hizumi-release{
+  background: linear-gradient(135deg, #e8f5ec 0%, #d6ead9 100%);
+  border: 1.5px solid #5a9070; padding: 16px 18px; border-radius: 8px; margin: 16px 0;
+}
+.hizumi-release-label{ font-weight:700; color:#3a6a4a; margin-bottom: 8px; font-size: 14px; }
+.hizumi-release p{ margin: 0; font-size: 15px; line-height: 1.85; }
+.hizumi-daily{
+  background: linear-gradient(135deg, #fef9e7 0%, #fbf0c8 100%);
+  border: 1.5px solid #d4af37; padding: 16px 18px; border-radius: 8px;
+}
+.hizumi-daily-label{ font-weight:700; color:#8b6914; margin-bottom: 8px; font-size: 14px; }
+.hizumi-daily p{ margin: 0; font-size: 15px; line-height: 1.85; }
+
+/* ---------- 04: 人生ステージ ---------- */
+.stage-card{
+  background: linear-gradient(180deg, #f7faff 0%, #e8f0fa 100%);
+  border: 1.5px solid #4a7ab8; position: relative;
+}
+.stage-deco{
+  position:absolute; top:-12px; left:50%; transform: translateX(-50%);
+  background:#4a7ab8; color:#fff; padding: 3px 18px; border-radius: 20px;
+  font-size: 11px; font-weight:700; letter-spacing: 3px;
+}
+.stage-pos{
+  font-size: 16px; line-height: 1.85; padding: 14px 18px;
+  background:#fff; border-left: 3px solid #4a7ab8; margin-bottom: 18px; border-radius: 4px;
+  font-weight:600; color:#2e5080;
+}
+.stage-howto, .stage-avoid, .stage-hint{
+  margin: 14px 0; padding: 14px 18px; border-radius: 8px;
+}
+.stage-howto{ background:#eaf2fa; border: 1px solid #b8d0e8; }
+.stage-howto-label{ font-weight:700; color:#2e5080; margin-bottom: 6px; font-size: 14px; }
+.stage-avoid{ background:#fff5f0; border: 1px solid #f0c8a8; }
+.stage-avoid-label{ font-weight:700; color:#a05028; margin-bottom: 6px; font-size: 14px; }
+.stage-hint{ background:#fff8e7; border: 1.5px dashed #d4af37; }
+.stage-hint-label{ font-weight:700; color:#8b6914; margin-bottom: 6px; font-size: 14px; }
+.stage-howto p, .stage-avoid p, .stage-hint p{ margin: 0; font-size: 14px; line-height: 1.85; }
+
+/* ---------- 05: 美の才能 ---------- */
+.beauty-type-card{
+  background: linear-gradient(180deg, #fffafd 0%, #fae8f0 100%);
+  border: 1.5px solid #c878a8; position: relative;
+}
+.beauty-deco{
+  position:absolute; top:-12px; left:50%; transform: translateX(-50%);
+  background:#c878a8; color:#fff; padding: 3px 18px; border-radius: 20px;
+  font-size: 11px; font-weight:700; letter-spacing: 3px;
+}
+.beauty-lead{
+  font-size: 16px; line-height: 1.85; padding: 14px 18px;
+  background:#fff; border-left: 3px solid #c878a8; margin-bottom: 16px; border-radius: 4px;
+}
+.beauty-magic{
+  background: linear-gradient(135deg, #fbeef6 0%, #f5d8e8 100%);
+  border: 1.5px solid #c878a8; padding: 16px 18px; border-radius: 8px; margin: 16px 0;
+}
+.beauty-magic-label{ font-weight:700; color:#8a4068; margin-bottom: 8px; font-size: 14px; }
+.beauty-magic p{ margin: 0; font-size: 15px; line-height: 1.85; }
+.beauty-grid{
+  display:grid; grid-template-columns: 1fr 1fr; gap: 10px; margin: 14px 0 18px;
+}
+.beauty-item{
+  background:#fff; padding: 12px 14px; border-radius: 6px;
+  border: 1px solid #ecd0e0; display:flex; gap: 10px; align-items: flex-start;
+}
+.bi-icon{ font-size: 22px; flex: none; }
+.bi-label{ font-weight:700; color:#8a4068; font-size: 12px; margin-bottom: 4px; }
+.bi-val{ font-size: 13px; line-height: 1.55; color:#3a3a3a; }
+.beauty-ng{
+  background:#fff5f0; border-left: 4px solid #c88; padding: 12px 16px; border-radius: 4px;
+}
+.beauty-ng-label{ font-weight:700; color:#a05050; margin-bottom: 6px; font-size: 13px; }
+.beauty-ng p{ margin: 0; font-size: 14px; line-height: 1.7; }
+@media (max-width: 720px){
+  .beauty-grid{ grid-template-columns: 1fr; }
+}
+
+/* ---------- 06: 開運アクション ---------- */
+.action-card{
+  background: linear-gradient(180deg, #f7fff8 0%, #e6f5e8 100%);
+  border: 1.5px solid #5a9070; position: relative;
+}
+.action-deco{
+  position:absolute; top:-12px; left:50%; transform: translateX(-50%);
+  background:#5a9070; color:#fff; padding: 3px 18px; border-radius: 20px;
+  font-size: 11px; font-weight:700; letter-spacing: 3px;
+}
+.action-lead{
+  font-size: 15px; line-height: 1.85; padding: 14px 18px;
+  background:#fff; border-left: 3px solid #5a9070; margin-bottom: 16px; border-radius: 4px;
+}
+.action-list{ display:flex; flex-direction:column; gap: 8px; margin: 14px 0 18px; }
+.action-row{
+  display:flex; gap: 14px; padding: 12px 14px;
+  background:#fff; border-radius: 6px; border: 1px solid #cce0d2;
+  align-items: flex-start;
+}
+.action-icon{ font-size: 22px; flex: none; padding-top: 2px; }
+.action-body{ flex: 1; }
+.action-label{ font-weight:700; color:#3a6a4a; font-size: 13px; margin-bottom: 4px; }
+.action-val{ font-size: 14px; line-height: 1.65; color:#2a2a2a; }
+.action-howto{
+  background: linear-gradient(135deg, #e8f5ec 0%, #d6ead9 100%);
+  border: 1.5px dashed #5a9070; padding: 14px 18px; border-radius: 8px;
+}
+.action-howto-label{ font-weight:700; color:#3a6a4a; margin-bottom: 6px; font-size: 13px; }
+.action-howto p{ margin: 0; font-size: 14px; line-height: 1.7; }
+
+/* ---------- 07: 人生ロードマップ ---------- */
+.menu-card-roadmap{ border-color: #b8860b !important; }
+.menu-card-roadmap .menu-tag{ background:#b8860b; color:#fff; }
+.cat-header-roadmap h2{ color:#8b6914; }
+.roadmap-card{
+  background: linear-gradient(180deg, #fffaeb 0%, #f7ebc8 100%);
+  border: 2px solid #b8860b; position: relative;
+}
+.roadmap-deco{
+  position:absolute; top:-12px; left:50%; transform: translateX(-50%);
+  background:#b8860b; color:#fff; padding: 3px 18px; border-radius: 20px;
+  font-size: 11px; font-weight:700; letter-spacing: 3px;
+}
+.roadmap-theme{
+  background: linear-gradient(135deg, #fff8e7 0%, #faedc4 100%);
+  border: 1.5px solid #d4af37; padding: 18px 20px; border-radius: 8px; margin-bottom: 18px;
+}
+.roadmap-theme-label{ font-weight:700; color:#8b6914; margin-bottom: 8px; font-size: 14px; }
+.roadmap-theme p{ margin: 0; font-size: 16px; line-height: 1.85; }
+.roadmap-twocol{ display:grid; grid-template-columns: 1fr 1fr; gap: 12px; margin: 16px 0 18px; }
+.roadmap-letgo, .roadmap-grow{
+  padding: 14px 16px; border-radius: 8px; background:#fff;
+}
+.roadmap-letgo{ border: 1px solid #e0b8b8; }
+.roadmap-grow{ border: 1px solid #b8d8c0; }
+.roadmap-col-label{ font-weight:700; margin-bottom: 8px; font-size: 13px; }
+.roadmap-letgo .roadmap-col-label{ color:#a04848; }
+.roadmap-grow .roadmap-col-label{ color:#3a7a4d; }
+.roadmap-letgo ul, .roadmap-grow ul{ margin: 0; padding-left: 18px; }
+.roadmap-letgo li, .roadmap-grow li{ margin: 6px 0; font-size: 13px; line-height: 1.65; }
+.roadmap-young, .roadmap-shine{
+  margin: 14px 0; padding: 14px 18px; border-radius: 8px;
+}
+.roadmap-young{ background:#fff8e7; border: 1.5px solid #d4af37; }
+.roadmap-young-label{ font-weight:700; color:#8b6914; margin-bottom: 6px; font-size: 13px; }
+.roadmap-shine{ background:#faeef7; border: 1.5px solid #c878a8; }
+.roadmap-shine-label{ font-weight:700; color:#8a4068; margin-bottom: 6px; font-size: 13px; }
+.roadmap-young p, .roadmap-shine p{ margin: 0; font-size: 14px; line-height: 1.8; }
+.roadmap-future{ margin-top: 18px; display:flex; flex-direction:column; gap: 10px; }
+.roadmap-future-row{
+  display:flex; gap: 14px; padding: 14px 16px;
+  background:#fff; border-radius: 8px; border: 1px solid #e8d8a8;
+  align-items: flex-start;
+}
+.rf-when{
+  flex: 0 0 90px; font-weight:700; color:#8b6914; font-size: 14px;
+  text-align:center; padding-top: 4px;
+}
+.rf-msg{ flex: 1; font-size: 14px; line-height: 1.75; }
+.roadmap-future-final{
+  background: linear-gradient(135deg, #fff8e7 0%, #f7e9c9 100%);
+  border: 1.5px solid #d4af37;
+}
+.roadmap-future-final .rf-when{ color:#6a4f0a; font-size: 15px; }
+.roadmap-future-final .rf-msg{ font-weight:600; }
+@media (max-width: 720px){
+  .roadmap-twocol{ grid-template-columns: 1fr; }
+  .roadmap-future-row{ flex-direction: column; gap: 6px; }
+  .rf-when{ flex: none; text-align: left; }
+}
+
+/* ---------- 総括ブロックの最終強調 ---------- */
+.block-final{
+  background: linear-gradient(135deg, #fff8e7 0%, #f7e9c9 100%);
+  border: 1.5px dashed #d4af37;
+  padding: 18px 20px; border-radius: 8px; margin-top: 16px;
+}
+.block-final h3{ color:#8b6914; }
+
