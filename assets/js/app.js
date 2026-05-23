@@ -254,6 +254,7 @@
       case 'cat4': html = renderCat4(calc); break;
       case 'cat5': html = renderCat5(calc); break;
       case 'cat6': html = renderCat6(calc); break;
+      case 'cat7': html = renderCat7(calc); break;
     }
 
     // 結果を保存（PDF用）
@@ -475,26 +476,83 @@
     `;
   }
 
-  // ---------- カテゴリ1: 先天性 ----------
+  // ============================================================
+  // ★ NEW DESIGN: 7軸構成のヘルパ
+  // ============================================================
+  function elementOf(c){ return D.ZODIAC[c.sunSign].element; }
+  function ageOf(){
+    const p = STATE.profile; if (!p || !p.y) return 30;
+    const t = new Date();
+    let a = t.getFullYear() - p.y;
+    const bm = (p.m||1)-1, bd = p.d||1;
+    if (t.getMonth() < bm || (t.getMonth() === bm && t.getDate() < bd)) a--;
+    return a;
+  }
+  // 心の歪み index 決定: lifePath (11/22/33 を含む) を 0〜8 に
+  function hizumiIndexOf(c){
+    const lp = c.lifePath;
+    const base = (lp === 11) ? 2 : (lp === 22) ? 4 : (lp === 33) ? 6 : lp;
+    return ((base - 1) % 9 + 9) % 9;
+  }
+  // 人生ステージ index 決定: 年齢 + 九星 + 西暦下1桁の組合せ → 0〜6
+  function stageIndexOf(c){
+    const t = new Date();
+    const a = ageOf();
+    const cycle = ((a + (c.nineStar || 1) + (t.getFullYear() % 7)) % 7 + 7) % 7;
+    return cycle;
+  }
+  // 美の才能 index: venusSign を 0〜5 に
+  function beautyIndexOf(c){
+    return ((c.venusSign % 6) + 6) % 6;
+  }
+
+  // ---------- カテゴリ1: 本質の私を知る（先天性） ----------
   function renderCat1(c) {
     const z = D.ZODIAC[c.sunSign];
     const stem = D.STEMS[c.dayStem];
-    const branch = D.BRANCHES[c.dayBranch];
     const sanmei = D.SANMEI[c.sanmeiIdx];
     const lp = D.NUMEROLOGY[c.lifePath];
     const six = D.SIX_STAR[c.sixStar.star];
-    const polarityLabel = c.sixStar.polarity === 'plus' ? '陽（プラス）' : '陰（マイナス）';
     const animal = D.ANIMALS[c.animal.animal];
-    const seimei = c.seimeiCat !== null ? D.SEIMEI[c.seimeiCat] : null;
+    const elem = elementOf(c);
+    const ess = D.ESSENCE[elem];
+
+    const essenceCard = ess ? `
+      <div class="fortune-card essence-deep-card">
+        <div class="essence-deco">◆ ESSENCE ◆</div>
+        <div class="fortune-head">
+          <div class="fortune-name">本質の私を知る ／ ${elem}の人</div>
+          <div class="fortune-result">キーワード：${escapeHtml(ess.keyword)}</div>
+        </div>
+        <div class="fortune-body">
+          <p class="essence-lead">${escapeHtml(ess.essence)}</p>
+
+          <div class="essence-grid">
+            <div class="essence-row"><div class="essence-label">隠れた才能</div><div class="essence-val">${escapeHtml(ess.hiddenTalent)}</div></div>
+            <div class="essence-row"><div class="essence-label">エネルギータイプ</div><div class="essence-val">${escapeHtml(ess.energyType)}</div></div>
+            <div class="essence-row"><div class="essence-label">感情パターン</div><div class="essence-val">${escapeHtml(ess.emotionPattern)}</div></div>
+            <div class="essence-row"><div class="essence-label">愛され方</div><div class="essence-val">${escapeHtml(ess.lovedHow)}</div></div>
+            <div class="essence-row essence-row-warn"><div class="essence-label">無理すると壊れる部分</div><div class="essence-val">${escapeHtml(ess.breakPoint)}</div></div>
+            <div class="essence-row essence-row-young"><div class="essence-label">若返る思考</div><div class="essence-val">${escapeHtml(ess.youthThought)}</div></div>
+            <div class="essence-row essence-row-age"><div class="essence-label">老けやすい思考</div><div class="essence-val">${escapeHtml(ess.ageThought)}</div></div>
+          </div>
+
+          <div class="essence-theme">
+            <div class="essence-theme-label">▼ あなたの人生のテーマ</div>
+            <p>${escapeHtml(ess.lifeTheme)}</p>
+          </div>
+        </div>
+        <div class="fortune-note">※ 「だからこそ今まで苦しかったんだ」と感じた部分があれば、それが本来のあなたの輪郭です。</div>
+      </div>` : '';
 
     return `
       <div class="cat-header">
         <span class="menu-tag">01　先天性</span>
-        <h2>生まれ持った魅力</h2>
-        <p>あなたの本質を、東西7つの占術から多角的にひも解きます。</p>
+        <h2>本質の私を知る</h2>
+        <p>東西の占術を統合し、あなたが生まれ持った"魂の設計図"を多角的にひも解きます。</p>
       </div>
 
-      ${buildSpotOnCard(c)}
+      ${essenceCard}
 
       ${buildSynthesisCard(c)}
 
@@ -512,290 +570,340 @@
       ${fortuneCard('数秘術 / ライフパスナンバー', `${c.lifePath}　${lp.title}`,
         `<div class="rich">${lp.innate}</div>`)}
 
-      ${fortuneCard('六星占術', `${six.name}（${polarityLabel}）`,
+      ${fortuneCard('六星占術', six.name,
         `<p><span class="label">運命数</span> ${c.sixStar.number}</p>
          <div class="rich">${six.innate}</div>`)}
 
       ${fortuneCard('動物占い', `${animal.emoji} ${animal.name}（No.${c.animal.number}）`,
         `<div class="rich">${animal.innate}</div>`)}
-
-      ${seimei
-        ? fortuneCard('姓名判断', `${seimei.name}（総格 ${c.seimei.sokaku}画）`,
-            `<div class="rich">${seimei.msg}</div>`,
-            '※ お名前を入力された場合のみ。画数は略式計算（漢字10画/かな3画）です。')
-        : fortuneCard('姓名判断', '— 未入力 —',
-            `<p>姓名判断はお名前を入力されると診断できます。「入力」画面から再度ご入力ください。</p>`)
-      }
     `;
   }
 
-  // ---------- カテゴリ2: 今 ----------
+  // ---------- カテゴリ2: 表面の私を知る（社会性） ----------
   function renderCat2(c) {
-    const tarot = F.drawTarot();
-    const tcard = D.TAROT_MAJOR[tarot.index];
-    const oracleIdx = F.drawOracle(1)[0];
-    const ocard = D.ORACLE[oracleIdx];
-    const dreamIdx = F.pickDream();
-    const dream = D.DREAM[dreamIdx];
+    const animal = D.ANIMALS[c.animal.animal];
+    const gap = D.OMOTE_GAP && D.OMOTE_GAP[c.animal.animal];
+    if (!gap) return '<div class="cat-header"><h2>表面の私を知る</h2></div>';
 
     return `
       <div class="cat-header">
-        <span class="menu-tag">02　今</span>
-        <h2>今のあなたの状態</h2>
-        <p>カードを引き直したいときは、ページ下の「もう一度この診断を見る」から再度引き直せます。</p>
+        <span class="menu-tag">02　社会性</span>
+        <h2>表面の私を知る</h2>
+        <p>「自分が思っている自分」と「他人から見えている自分」のギャップを可視化します。</p>
+      </div>
+
+      <div class="fortune-card omote-card">
+        <div class="omote-deco">◇ GAP ◇</div>
+        <div class="fortune-head">
+          <div class="fortune-name">第一印象とギャップ診断</div>
+          <div class="fortune-result">${animal.emoji} ${animal.name}タイプ</div>
+        </div>
+        <div class="fortune-body">
+          <p class="omote-lead">あなたが他人からどう見えていて、本当はどう違うのか——その"ギャップ"こそ、あなたの隠れた魅力です。</p>
+
+          <div class="omote-block">
+            <div class="omote-label">▷ 表面のキャラクター</div>
+            <p>${escapeHtml(gap.surfaceChar)}</p>
+          </div>
+          <div class="omote-block">
+            <div class="omote-label">▷ 第一印象</div>
+            <p>${escapeHtml(gap.firstImpression)}</p>
+          </div>
+          <div class="omote-block">
+            <div class="omote-label">▷ 話し方の傾向</div>
+            <p>${escapeHtml(gap.talkStyle)}</p>
+          </div>
+
+          <h4>シーン別の"モード"</h4>
+          <div class="omote-mode-grid">
+            <div class="omote-mode"><div class="mode-label">人前モード</div><p>${escapeHtml(gap.socialMode)}</p></div>
+            <div class="omote-mode"><div class="mode-label">家族モード</div><p>${escapeHtml(gap.familyMode)}</p></div>
+            <div class="omote-mode"><div class="mode-label">恋愛モード</div><p>${escapeHtml(gap.loveMode)}</p></div>
+          </div>
+
+          <div class="omote-gap-box">
+            <div class="omote-gap-label">▼ あなたの内外ギャップ</div>
+            <p class="omote-gap-line">${escapeHtml(gap.gap)}</p>
+            <p class="omote-gap-reason">${escapeHtml(gap.reason)}</p>
+          </div>
+        </div>
+        <div class="fortune-note">※ ギャップを否定する必要はありません。むしろそれを認めて出していくほど、あなたは魅力的になります。</div>
       </div>
 
       ${buildHeartWeatherCard(c)}
-
-      ${fortuneCard('タロット（大アルカナ1枚引き）',
-        `${tcard.name}（${tarot.reversed ? '逆位置' : '正位置'}）`,
-        `<div class="rich">${tarot.reversed ? tcard.rev : tcard.up}</div>`)}
-
-      ${fortuneCard('オラクルカード', ocard.title,
-        `<p>${ocard.msg}</p>`)}
-
-      ${fortuneCard('夢占い / 今あなたが見やすい夢', dream.key,
-        `<div class="rich">${dream.msg}</div>`,
-        '※ ランダムにキーワードを引き当てる略式診断です。')}
     `;
   }
 
-  // ---------- カテゴリ3: 未来 ----------
+  // ---------- カテゴリ3: 心の歪み診断（後天性）★最重要 ----------
   function renderCat3(c) {
-    const six = D.SIX_STAR[c.sixStar.star];
-    const z = D.ZODIAC[c.sunSign];
-    const stem = D.STEMS[c.dayStem];
-    const ns = D.NINE_STAR[c.nineStar];
-    const iIdx = F.drawIching();
-    const ich = D.ICHING[iIdx];
-    const rIdx = F.drawRune();
-    const rn = D.RUNES[rIdx];
-    const yearStem = D.STEMS[c.yearLuck.yearStem];
+    const idx = hizumiIndexOf(c);
+    const h = D.HIZUMI[idx];
+    if (!h) return '<div class="cat-header"><h2>心の歪み診断</h2></div>';
+
+    const symptomLis = h.bodySymptoms.map(s => `<li>${escapeHtml(s)}</li>`).join('');
 
     return `
-      <div class="cat-header">
-        <span class="menu-tag">03　未来</span>
-        <h2>これからの運命の流れ</h2>
-        <p>本年・近い未来の流れを6つの占術で多角的に展望します。</p>
+      <div class="cat-header cat-header-hizumi">
+        <span class="menu-tag menu-tag-hizumi">03　後天性 ／ 最重要</span>
+        <h2>心の歪み診断</h2>
+        <p>「だから今まで苦しかったんだ」が分かる、後天的に形成された心のクセと、それが身体にどう出ているかを解き明かします。</p>
       </div>
 
-      ${buildTimelineCard(c)}
+      <div class="fortune-card hizumi-card">
+        <div class="hizumi-deco">◆ DEEP ◆</div>
+        <div class="fortune-head">
+          <div class="fortune-name">あなたの心の歪みタイプ</div>
+          <div class="fortune-result">${escapeHtml(h.name)}</div>
+        </div>
+        <div class="fortune-body">
+          <p class="hizumi-catch">"${escapeHtml(h.catchphrase)}"</p>
 
-      ${fortuneCard('六星占術 / 未来の流れ', six.name,
-        `<div class="rich">${six.future}</div>`)}
+          <h4>この歪みのパターン</h4>
+          <div class="rich"><p>${escapeHtml(h.pattern)}</p></div>
 
-      ${fortuneCard('西洋占星術 / これからのテーマ', `${z.symbol} ${z.name}`,
-        `<div class="rich">${z.future}</div>`)}
+          <div class="hizumi-bridge">
+            <div class="hizumi-bridge-label">▼ なぜ身体に出るのか</div>
+            <p>${escapeHtml(h.whyBody)}</p>
+          </div>
 
-      ${fortuneCard('四柱推命 / 本年の年運',
-        `本年の天干：${yearStem.name}`,
-        `<p>本年は「${yearStem.element}」の質を帯びた年。${stem.name}のあなたにとって、${stem.element}の本質を活かしつつ、${yearStem.element.replace('の陽','').replace('の陰','')}の流れを受け入れる年です。</p>
-         <p>${stem.innate}</p>`,
-        '※ 本年の干支との関係性をベースにした略式の年運診断です。')}
+          <h4>身体に出ている具体的なサイン</h4>
+          <ul class="hizumi-symptoms">${symptomLis}</ul>
 
-      ${fortuneCard('九星気学 / 本命星と本年の傾向', `${ns.name}（${ns.element}）`,
-        `<div class="rich">${ns.future}</div>`)}
+          <div class="hizumi-release">
+            <div class="hizumi-release-label">✦ 解放のワーク</div>
+            <p>${escapeHtml(h.release)}</p>
+          </div>
 
-      ${fortuneCard('易占い（六十四卦）', ich.name,
-        `<p>${ich.meaning}</p>`)}
-
-      ${fortuneCard('ルーン占い', rn.name,
-        `<p>${rn.meaning}</p>`)}
-
-      <p class="annot">※ タロット・易・ルーンはこの画面を開いた瞬間に1枚ずつ引いています。再診断すると別のカードが出ます。</p>
+          <div class="hizumi-daily">
+            <div class="hizumi-daily-label">★ 今日からできる小さな一歩</div>
+            <p>${escapeHtml(h.dailyAction)}</p>
+          </div>
+        </div>
+        <div class="fortune-note">※ 「あぁ、私のことだ」と感じたら、それが回復の入口です。歪みは"悪"ではなく、生きるために必要だった守りの形。気づいた今から、ゆっくり手放していけます。</div>
+      </div>
     `;
   }
 
-  // ---------- カテゴリ4: 美 ----------
+  // ---------- カテゴリ4: 人生ステージ診断 ----------
   function renderCat4(c) {
-    const face = D.FACE[c.faceType];
-    const palm = D.PALM[c.palmType];
-    const venus = D.ZODIAC[c.venusSign];
-    const asc = D.ZODIAC[c.ascendant];
-    const lp = D.NUMEROLOGY[c.lifePath];
-    const seimei = c.seimeiCat !== null ? D.SEIMEI[c.seimeiCat] : null;
+    const idx = stageIndexOf(c);
+    const s = D.LIFE_STAGE[idx];
+    if (!s) return '<div class="cat-header"><h2>人生ステージ診断</h2></div>';
+
+    const avoidLis = (s.avoid || '').split('。').filter(t => t.trim()).map(t => `<li>${escapeHtml(t.trim())}。</li>`).join('');
 
     return `
       <div class="cat-header">
-        <span class="menu-tag">04　美</span>
-        <h2>あなたの美しさと印象</h2>
-        <p>持って生まれた美の質、磨くべき魅力ポイントを多角的に診断します。</p>
+        <span class="menu-tag">04　今どこ</span>
+        <h2>あなたの人生ステージ</h2>
+        <p>未来予言ではなく「今どこにいて、どう生きるべきか」を読み解きます。</p>
+      </div>
+
+      <div class="fortune-card stage-card">
+        <div class="stage-deco">◈ STAGE ◈</div>
+        <div class="fortune-head">
+          <div class="fortune-name">今のあなたの人生ステージ</div>
+          <div class="fortune-result">${escapeHtml(s.name)}</div>
+        </div>
+        <div class="fortune-body">
+          <p class="stage-pos">${escapeHtml(s.stagePos)}</p>
+
+          <h4>今、内側で何が起きているか</h4>
+          <div class="rich"><p>${escapeHtml(s.whatIsHappening)}</p></div>
+
+          <div class="stage-howto">
+            <div class="stage-howto-label">▷ この時期の生き方</div>
+            <p>${escapeHtml(s.howToLive)}</p>
+          </div>
+
+          <div class="stage-avoid">
+            <div class="stage-avoid-label">✗ 今、避けたいこと</div>
+            <p>${escapeHtml(s.avoid)}</p>
+          </div>
+
+          <div class="stage-hint">
+            <div class="stage-hint-label">★ このステージのヒント</div>
+            <p>${escapeHtml(s.hint)}</p>
+          </div>
+        </div>
+        <div class="fortune-note">※ 人生のステージは数年単位で動きます。今の自分を否定せず、「このステージで何ができるか」だけに集中して。</div>
+      </div>
+    `;
+  }
+
+  // ---------- カテゴリ5: 美の才能診断 ----------
+  function renderCat5(c) {
+    const idx = beautyIndexOf(c);
+    const b = D.BEAUTY_TYPE[idx];
+    if (!b) return '<div class="cat-header"><h2>美の才能診断</h2></div>';
+
+    const venus = D.ZODIAC[c.venusSign];
+
+    return `
+      <div class="cat-header">
+        <span class="menu-tag">05　美の才能</span>
+        <h2>美の才能診断</h2>
+        <p>あなたの魅力が最大化する"美の世界観"を6タイプから診断します。</p>
+      </div>
+
+      <div class="fortune-card beauty-type-card">
+        <div class="beauty-deco">✿ BEAUTY ✿</div>
+        <div class="fortune-head">
+          <div class="fortune-name">あなたの美の才能タイプ</div>
+          <div class="fortune-result">${escapeHtml(b.name)}</div>
+        </div>
+        <div class="fortune-body">
+          <p class="beauty-lead">${escapeHtml(b.worldview)}</p>
+
+          <div class="beauty-magic">
+            <div class="beauty-magic-label">▼ あなたの魔法</div>
+            <p>${escapeHtml(b.yourMagic)}</p>
+          </div>
+
+          <h4>あなたが最も輝く世界観</h4>
+          <div class="beauty-grid">
+            <div class="beauty-item"><div class="bi-icon">🎨</div><div class="bi-label">カラー</div><div class="bi-val">${escapeHtml(b.color)}</div></div>
+            <div class="beauty-item"><div class="bi-icon">👗</div><div class="bi-label">素材</div><div class="bi-val">${escapeHtml(b.material)}</div></div>
+            <div class="beauty-item"><div class="bi-icon">💇</div><div class="bi-label">ヘア</div><div class="bi-val">${escapeHtml(b.hair)}</div></div>
+            <div class="beauty-item"><div class="bi-icon">💄</div><div class="bi-label">メイク</div><div class="bi-val">${escapeHtml(b.makeup)}</div></div>
+            <div class="beauty-item"><div class="bi-icon">🌸</div><div class="bi-label">香り</div><div class="bi-val">${escapeHtml(b.perfume)}</div></div>
+            <div class="beauty-item"><div class="bi-icon">✨</div><div class="bi-label">立ち居振る舞い</div><div class="bi-val">${escapeHtml(b.manner)}</div></div>
+          </div>
+
+          <div class="beauty-ng">
+            <div class="beauty-ng-label">✗ あなたを老けさせる装い</div>
+            <p>${escapeHtml(b.ngStyle)}</p>
+          </div>
+        </div>
+        <div class="fortune-note">※ 金星星座「${escapeHtml(venus.name)}」とあなたの本質を統合した、あなただけの美の方向性です。</div>
       </div>
 
       ${buildLifecycleCard(c)}
-
-      ${fortuneCard('人相', face.name,
-        `${STATE.profile && STATE.profile.facePhoto
-          ? `<div class="user-photo-frame"><img class="user-photo" src="${STATE.profile.facePhoto}" alt="お顔の写真" /><div class="user-photo-caption">あなたのお写真</div></div>`
-          : ''}
-         <div class="rich">${face.msg}</div>`,
-        STATE.profile && STATE.profile.facePhoto
-          ? '※ 生年月日と表情の質感から導き出した略式診断です。'
-          : '※ 生年月日から導き出した傾向診断です。お顔の写真をご登録いただくとカードに表示されます。')}
-
-      ${fortuneCard('手相', palm.name,
-        `${STATE.profile && STATE.profile.palmPhoto
-          ? `<div class="user-photo-frame"><img class="user-photo" src="${STATE.profile.palmPhoto}" alt="手のひらの写真" /><div class="user-photo-caption">あなたの手のひら</div></div>`
-          : ''}
-         <div class="rich">${palm.msg}</div>`,
-        STATE.profile && STATE.profile.palmPhoto
-          ? '※ 生年月日と手のひらの傾向から導き出した略式診断です。'
-          : '※ 生年月日から導き出した傾向診断です。手のひらの写真をご登録いただくとカードに表示されます。')}
-
-      ${fortuneCard('西洋占星術 / 金星星座', `${venus.symbol} ${venus.name}`,
-        `<p>あなたの愛され方・魅せ方の核は「${venus.name}」の質感です。</p>
-         <div class="rich">${venus.beauty}</div>`,
-        '※ 略式計算（太陽星座を基準とした近似）です。正確な金星星座には出生時刻と場所の精密データが必要です。')}
-
-      ${fortuneCard('西洋占星術 / アセンダント（人に与える第一印象）', `${asc.symbol} ${asc.name}`,
-        `<div class="rich">${asc.beauty}</div>`,
-        '※ 略式計算。正確なアセンダントには出生時刻と緯度経度が必要です。')}
-
-      ${fortuneCard('数秘術 / 美の魅力ポイント', `${c.lifePath}　${lp.title}`,
-        `<div class="rich">${lp.beauty}</div>`)}
-
-      ${seimei
-        ? fortuneCard('姓名判断 / 名前が放つ印象', seimei.name,
-            `<div class="rich">${seimei.msg}</div>`)
-        : fortuneCard('姓名判断', '— 未入力 —',
-            `<p>お名前を入力されると診断できます。</p>`)
-      }
     `;
   }
 
-  // ---------- カテゴリ5: 開運行動 ----------
-  function renderCat5(c) {
-    const ns = D.NINE_STAR[c.nineStar];
-    const six = D.SIX_STAR[c.sixStar.star];
-    const iIdx = F.drawIching();
-    const ich = D.ICHING[iIdx];
-    const oracleIdx = F.drawOracle(1)[0];
-    const ocard = D.ORACLE[oracleIdx];
-    const tarot = F.drawTarot();
-    const tcard = D.TAROT_MAJOR[tarot.index];
-    const kuji = F.drawKuji();
-    const kujiData = D.KUJI[kuji];
-    const z = D.ZODIAC[c.sunSign];
+  // ---------- カテゴリ6: 若返り開運アクション ----------
+  function renderCat6(c) {
+    const elem = elementOf(c);
+    const a = D.OPENLUCK_ACTION && D.OPENLUCK_ACTION[elem];
+    if (!a) return '<div class="cat-header"><h2>若返り開運アクション</h2></div>';
+
+    const areas = [
+      ['🛌','睡眠', a.sleep],
+      ['🌬','呼吸', a.breath],
+      ['🧘','姿勢', a.posture],
+      ['💬','言葉', a.words],
+      ['🌅','朝習慣', a.morning],
+      ['🍴','食事', a.food],
+      ['👥','人間関係', a.relation],
+      ['📱','SNS・発信', a.sns],
+      ['👗','ファッション', a.fashion],
+      ['🌸','香り', a.perfume],
+      ['🏃','運動', a.exercise],
+      ['🧠','思考', a.thought]
+    ];
+    const rows = areas.map(([icon, label, val]) => `
+      <div class="action-row">
+        <div class="action-icon">${icon}</div>
+        <div class="action-body">
+          <div class="action-label">${escapeHtml(label)}</div>
+          <div class="action-val">${escapeHtml(val)}</div>
+        </div>
+      </div>`).join('');
 
     return `
       <div class="cat-header">
-        <span class="menu-tag">05　開運</span>
-        <h2>今のあなたの開運行動</h2>
-        <p>具体的に「今日からできること」をお伝えします。</p>
+        <span class="menu-tag">06　開運行動</span>
+        <h2>若返り開運アクション</h2>
+        <p>占いを「見て終わり」にしないための、あなた専用12領域の具体ルーチン。</p>
+      </div>
+
+      <div class="fortune-card action-card">
+        <div class="action-deco">★ ACTION ★</div>
+        <div class="fortune-head">
+          <div class="fortune-name">あなた専用の12領域ルーチン</div>
+          <div class="fortune-result">${escapeHtml(elem)}の質に合わせた具体策</div>
+        </div>
+        <div class="fortune-body">
+          <p class="action-lead">${escapeHtml(elem)}の質を持つあなたが、最も若々しく・幸せに過ごせる12領域の具体行動です。1日に1つでも取り入れると、3週間で身体が変わります。</p>
+          <div class="action-list">${rows}</div>
+          <div class="action-howto">
+            <div class="action-howto-label">▼ 取り入れ方</div>
+            <p>全部一気にやろうとしないこと。「これならできそう」と感じた1つから始めて、それが習慣化したら次へ。気負わず、ゆっくり育てていく感覚で。</p>
+          </div>
+        </div>
+        <div class="fortune-note">※ 占いの結果に従うのではなく、あなた本来の質と共鳴する選択を積み重ねるためのガイドです。</div>
       </div>
 
       ${buildLuckyMatrixCard(c)}
-
-      ${fortuneCard('九星気学 / ラッキー行動', ns.name,
-        `<div class="rich">${ns.luck}</div>`)}
-
-      ${fortuneCard('六星占術 / 運気の活かし方', six.name,
-        `<div class="rich">${six.future}</div>
-         <p class="hr-soft"><span class="label">星座由来のラッキー行動</span></p>
-         <div class="rich">${z.luck}</div>`)}
-
-      ${fortuneCard('易占い / 今のあなたへの指針', ich.name,
-        `<p>${ich.meaning}</p>`)}
-
-      ${fortuneCard('オラクルカード / 受け取るメッセージ', ocard.title,
-        `<p>${ocard.msg}</p>`)}
-
-      ${fortuneCard('タロット / 今日のアドバイス',
-        `${tcard.name}（${tarot.reversed ? '逆位置' : '正位置'}）`,
-        `<div class="rich">${tarot.reversed ? tcard.rev : tcard.up}</div>`)}
-
-      ${fortuneCard('おみくじ', kujiData.name,
-        `<div class="rich">${kujiData.msg}</div>`)}
     `;
   }
 
-  // ---------- カテゴリ6: 悩みから読み解く ----------
-  function renderCat6(c){
-    const p = STATE.profile || {};
-    const worryCat = p.worryCat || null;
-    const worryText = p.worryText || '';
-    const z = D.ZODIAC[c.sunSign];
-    const stem = D.STEMS[c.dayStem];
-    const elem = z.element; // 火/土/風/水
+  // ---------- カテゴリ7: 人生ロードマップ（最終レポート） ----------
+  function renderCat7(c) {
+    const elem = elementOf(c);
+    const r = D.ROADMAP && D.ROADMAP[elem];
+    if (!r) return '<div class="cat-header"><h2>人生ロードマップ</h2></div>';
 
-    if (!worryCat || !D.WORRY[worryCat]) {
-      return `
-        <div class="cat-header">
-          <span class="menu-tag">06　悩 み</span>
-          <h2>お悩みから読み解く</h2>
-          <p>あなたの「今いちばん気になっていること」を起点に、先天と後天の両面から運勢を診ます。</p>
-        </div>
-        ${fortuneCard('お悩みのテーマ', '— 未選択 —',
-          `<p>「入力」画面の<strong>「今いちばん気になっていること」</strong>セクションから、テーマをひとつお選びください。選んでいただくと、その視点での詳細な診断を生成します。</p>
-           <p>自由記述欄も合わせて入力いただくと、より深い読み解きが可能になります。</p>`,
-          '※ お悩みの記入は任意です。任意でも他の05カテゴリは引き続きご利用いただけます。')}
-      `;
-    }
-
-    const w = D.WORRY[worryCat];
-    const innateMsg = w.innate[elem] || w.innate['火'];
-    const acquiredMsg = w.acquired[elem] || w.acquired['火'];
-    const spotLines = (D.SPOTON && D.SPOTON.worry && D.SPOTON.worry[worryCat]) || [];
-    const spotZ = D.SPOTON && D.SPOTON.zodiac && D.SPOTON.zodiac[c.sunSign];
-    // 星座の影の側面1つを「悩みと連動する弱点」として混ぜる
-    const bonusInsight = spotZ && spotZ.shadow && spotZ.shadow[0] ? spotZ.shadow[0] : '';
-    const spotHtml = spotLines.length ? `
-      <div class="fortune-card spot-card spot-card-worry">
-        <div class="spot-card-deco">✦ ZUBARI ✦</div>
-        <div class="fortune-head">
-          <div class="fortune-name">ズバリ言い当て ／ 「${escapeHtml(w.label)}」で本当に起きていること</div>
-          <div class="fortune-result">${z.symbol} ${z.name}</div>
-        </div>
-        <div class="fortune-body">
-          <p class="spot-lead">悩みの本当の正体に、心当たりはありませんか。</p>
-          <ul class="spot-list spot-bright">${spotLines.map(t => `<li>${t}</li>`).join('')}</ul>
-          ${bonusInsight ? `<h4>${escapeHtml(z.name)}のあなただからこそ、ここに気づいて</h4>
-          <div class="rich"><p>${bonusInsight}</p></div>` : ''}
-        </div>
-        <div class="fortune-note">※ 全部当てはまる必要はありません。胸が動いた一行を、今日の指針に。</div>
-      </div>` : '';
-
-    const worryEcho = worryText
-      ? `<div class="worry-echo">
-           <div class="worry-echo-label">あなたが書いてくださったお悩み</div>
-           <p>「${escapeHtml(worryText)}」</p>
-         </div>`
-      : '';
+    const letGoLis = (r.letGo || []).map(t => `<li>${escapeHtml(t)}</li>`).join('');
+    const growLis = (r.growMore || []).map(t => `<li>${escapeHtml(t)}</li>`).join('');
 
     return `
-      <div class="cat-header">
-        <span class="menu-tag">06　悩 み</span>
-        <h2>お悩みから読み解く</h2>
-        <p>「${escapeHtml(w.label)}」を軸に、生まれ持った力（先天）と、これから整えるべき行動（後天）の両面から、あなただけの運勢メッセージをお届けします。</p>
+      <div class="cat-header cat-header-roadmap">
+        <span class="menu-tag">07　ロードマップ</span>
+        <h2>あなたの人生ロードマップ</h2>
+        <p>占いを超えた、あなただけの人生変革設計図。これからどう生きれば本当に楽になるかを描きます。</p>
       </div>
 
-      ${fortuneCard('お悩みのテーマ', w.label,
-        `<p>${w.lead}</p>
-         ${worryEcho}`)}
+      <div class="fortune-card roadmap-card">
+        <div class="roadmap-deco">◆ ROADMAP ◆</div>
+        <div class="fortune-head">
+          <div class="fortune-name">あなたの人生変革設計図</div>
+          <div class="fortune-result">${escapeHtml(elem)}の人として生きるロードマップ</div>
+        </div>
+        <div class="fortune-body">
+          <div class="roadmap-theme">
+            <div class="roadmap-theme-label">▼ あなたの人生のテーマ</div>
+            <p>${escapeHtml(r.lifeTheme)}</p>
+          </div>
 
-      ${spotHtml}
+          <div class="roadmap-twocol">
+            <div class="roadmap-letgo">
+              <div class="roadmap-col-label">✗ 今、手放すべきもの</div>
+              <ul>${letGoLis}</ul>
+            </div>
+            <div class="roadmap-grow">
+              <div class="roadmap-col-label">✦ これから伸ばすべきもの</div>
+              <ul>${growLis}</ul>
+            </div>
+          </div>
 
-      ${fortuneCard('先天的視点 ／ 生まれ持った力',
-        `${z.symbol} ${z.name}　＝ ${elem}の質`,
-        `<h4>あなたが本来持っている運勢</h4>
-         <div class="rich"><p>${innateMsg}</p></div>
-         <h4>その質を支える日柱の本質</h4>
-         <div class="rich"><p>${stem.name}（${stem.element}）。${stem.innate.split('。')[0]}。これがあなたの内側に流れる、揺るがない核です。</p></div>`,
-        '※ 太陽星座の元素と日干から導き出した略式の先天診断です。')}
+          <div class="roadmap-young">
+            <div class="roadmap-young-label">★ 若返るために必要なこと</div>
+            <p>${escapeHtml(r.youngerSecret)}</p>
+          </div>
 
-      ${fortuneCard('後天的視点 ／ これから整えるべきこと',
-        `${elem}の質を磨く`,
-        `<h4>このテーマで、あなたが今意識すべきこと</h4>
-         <div class="rich"><p>${acquiredMsg}</p></div>`,
-        '※ 同じ元素のあなたでも、後天的に整えることで運命の方向は大きく変わります。')}
+          <div class="roadmap-shine">
+            <div class="roadmap-shine-label">✿ あなたが本来輝く生き方</div>
+            <p>${escapeHtml(r.trueShine)}</p>
+          </div>
 
-      ${fortuneCard('今日からできる具体的アクション', '4つのヒント',
-        `<ul>
-           ${w.actions.split(/[／\/]/).map(a => `<li>${escapeHtml(a.trim())}</li>`).filter(li => li.length > 12).join('')}
-         </ul>`,
-        '※ 1日1つでも構いません。続けるほどに運気が動き出します。')}
+          <div class="roadmap-future">
+            <div class="roadmap-future-row">
+              <div class="rf-when">3 ヶ 月 後</div>
+              <div class="rf-msg">${escapeHtml(r.after3Months)}</div>
+            </div>
+            <div class="roadmap-future-row roadmap-future-final">
+              <div class="rf-when">1 年 後</div>
+              <div class="rf-msg">${escapeHtml(r.after1Year)}</div>
+            </div>
+          </div>
+        </div>
+        <div class="fortune-note">※ このロードマップは、あなたが既に持っているものを示しているだけです。新しく何かを得る必要はありません。本来のあなたに戻るだけ。</div>
+      </div>
     `;
   }
+
 
   // ---------- カードHTMLビルダ ----------
   function fortuneCard(name, result, body, note) {
@@ -820,7 +928,7 @@
 
   // ---------- 次のカテゴリへ ----------
   $('#btn-next-cat').addEventListener('click', () => {
-    const order = ['cat1', 'cat2', 'cat3', 'cat4', 'cat5', 'cat6'];
+    const order = ['cat1', 'cat2', 'cat3', 'cat4', 'cat5', 'cat6', 'cat7'];
     const cur = STATE.currentCat;
     const idx = order.indexOf(cur);
     const next = order[idx + 1];
@@ -845,8 +953,8 @@
     if (!calc) return;
     const p = STATE.profile;
 
-    // 未診断カテゴリがあれば自動的に計算（同じ生年月日なら結果は安定、カードのみランダム）
-    ['cat1','cat2','cat3','cat4','cat5','cat6'].forEach(cat => {
+    // 未診断カテゴリがあれば自動的に計算
+    ['cat1','cat2','cat3','cat4','cat5','cat6','cat7'].forEach(cat => {
       if (!STATE.results[cat]) {
         const html =
           cat === 'cat1' ? renderCat1(calc) :
@@ -854,7 +962,8 @@
           cat === 'cat3' ? renderCat3(calc) :
           cat === 'cat4' ? renderCat4(calc) :
           cat === 'cat5' ? renderCat5(calc) :
-          renderCat6(calc);
+          cat === 'cat6' ? renderCat6(calc) :
+          renderCat7(calc);
         STATE.results[cat] = { calc, html };
       }
     });
@@ -863,81 +972,89 @@
     const today = new Date();
     const dateStr = `${today.getFullYear()}.${String(today.getMonth()+1).padStart(2,'0')}.${String(today.getDate()).padStart(2,'0')}`;
 
-    // 総合サマリー
+    // 総括サマリー
     const z = D.ZODIAC[calc.sunSign];
     const lp = D.NUMEROLOGY[calc.lifePath];
     const animal = D.ANIMALS[calc.animal.animal];
+    const elem = z.element;
+    const ess = D.ESSENCE && D.ESSENCE[elem];
+    const stripHeader = (s) => (s || '').replace(/<div class="cat-header[^"]*">[\s\S]*?<\/div>\s*<\/div>/, '').replace(/<div class="cat-header[^"]*">[\s\S]*?<\/div>/, '');
 
     const summaryHtml = `
       <div class="block">
-        <h3>あなたの本質</h3>
-        <p>あなたは「${z.name}」と「数秘${calc.lifePath}（${lp.title}）」、そして「${animal.name}」の質を併せ持つ人。
-        ${z.innate.split('。')[0]}。${lp.innate.split('。')[0]}。これが、誰にもまねできないあなたの核です。</p>
+        <h3>あなたの本質は、ひと言で言うと</h3>
+        <p>「${escapeHtml(ess ? ess.keyword : z.name)}」を持つ人。${escapeHtml(z.name)}、数秘${calc.lifePath}（${escapeHtml(lp.title)}）、${escapeHtml(animal.name)}——3つの占術が共通して指し示す、あなたの揺るがない核です。</p>
       </div>
       <div class="block">
-        <h3>これから磨くべき美しさ</h3>
-        <p>${z.beauty}</p>
+        <h3>これまで苦しかった理由</h3>
+        <p>${escapeHtml(ess ? ess.breakPoint : '')}　これがあなたを消耗させてきた根本です。</p>
       </div>
       <div class="block">
-        <h3>これからの運命の方向性</h3>
-        <p>${z.future}</p>
+        <h3>これから生きるべき道</h3>
+        <p>${escapeHtml(ess ? ess.lifeTheme : z.future)}</p>
       </div>
-      <div class="block">
-        <h3>今日からできる開運行動</h3>
-        <p>${z.luck}</p>
+      <div class="block block-final">
+        <h3>このレポートを閉じた後、最初にやってほしいこと</h3>
+        <p>一番心に残った1ページを、もう一度だけ読み返してください。そして、その中の「今日からできる小さな一歩」を、明日の自分のために1つだけ選んでください。それが、本当のあなたへ戻る最初の道しるべになります。</p>
       </div>
     `;
 
     const report = `
       <div class="report" id="report-body">
         <div class="report-cover">
-          <div class="label">FORTUNE REPORT</div>
-          <h1>魅力開花診断<br>総合レポート</h1>
-          <div class="sub">— for adult women who bloom —</div>
+          <div class="label">LIFE MANUAL</div>
+          <h1>魅力開花診断<br>人生の取扱説明書</h1>
+          <div class="sub">— for the woman who blooms again —</div>
           <div class="for">For</div>
           <div class="name">${escapeHtml(nameDisp)}</div>
           <div class="date">${dateStr}</div>
         </div>
 
         <div class="report-section">
-          <h2>01　生まれ持った魅力</h2>
-          <div class="section-sub">先天性 ／ あなたの本質を多角的に</div>
-          ${STATE.results.cat1.html.replace(/<div class="cat-header">[\s\S]*?<\/div>/, '')}
+          <h2>01　本質の私を知る</h2>
+          <div class="section-sub">先天性 ／ 東西占術が指し示す、あなたの核</div>
+          ${stripHeader(STATE.results.cat1.html)}
         </div>
 
         <div class="report-section">
-          <h2>02　今のあなたの状態</h2>
-          <div class="section-sub">今 ／ 心と運気の現在地</div>
-          ${STATE.results.cat2.html.replace(/<div class="cat-header">[\s\S]*?<\/div>/, '')}
+          <h2>02　表面の私を知る</h2>
+          <div class="section-sub">社会性 ／ 自分像と他人像のギャップ</div>
+          ${stripHeader(STATE.results.cat2.html)}
         </div>
 
         <div class="report-section">
-          <h2>03　これからの運命の流れ</h2>
-          <div class="section-sub">未来 ／ 6占術による多角展望</div>
-          ${STATE.results.cat3.html.replace(/<div class="cat-header">[\s\S]*?<\/div>/, '')}
+          <h2>03　心の歪み診断</h2>
+          <div class="section-sub">後天性 ／ なぜ今まで苦しかったのか／身体への現れ</div>
+          ${stripHeader(STATE.results.cat3.html)}
         </div>
 
         <div class="report-section">
-          <h2>04　あなたの美しさと印象</h2>
-          <div class="section-sub">美 ／ 持って生まれた魅力と磨き方</div>
-          ${STATE.results.cat4.html.replace(/<div class="cat-header">[\s\S]*?<\/div>/, '')}
+          <h2>04　人生ステージ診断</h2>
+          <div class="section-sub">今どこ ／ 今の位置と過ごし方</div>
+          ${stripHeader(STATE.results.cat4.html)}
         </div>
 
         <div class="report-section">
-          <h2>05　今のあなたの開運行動</h2>
-          <div class="section-sub">開運 ／ 今日からできる具体的アクション</div>
-          ${STATE.results.cat5.html.replace(/<div class="cat-header">[\s\S]*?<\/div>/, '')}
+          <h2>05　美の才能診断</h2>
+          <div class="section-sub">美 ／ あなたの魅力が最大化する世界観</div>
+          ${stripHeader(STATE.results.cat5.html)}
         </div>
 
         <div class="report-section">
-          <h2>06　お悩みから読み解く</h2>
-          <div class="section-sub">悩み ／ 先天と後天の両面から</div>
-          ${STATE.results.cat6.html.replace(/<div class="cat-header">[\s\S]*?<\/div>/, '')}
+          <h2>06　若返り開運アクション</h2>
+          <div class="section-sub">開運 ／ 今日からできる12領域の具体策</div>
+          ${stripHeader(STATE.results.cat6.html)}
+        </div>
+
+        <div class="report-section">
+          <h2>07　あなたの人生ロードマップ</h2>
+          <div class="section-sub">設計図 ／ 手放すもの・伸ばすもの・3ヶ月後・1年後</div>
+          ${stripHeader(STATE.results.cat7.html)}
         </div>
 
         <div class="report-section report-summary">
-          <h2>総括</h2>
-          <div class="section-sub">本質・今・未来をひとつに</div>
+          <h2>総括 ／ ここから始まる、本当のあなた</h2>
+          <div class="section-sub">7つの診断を、1つに結んで</div>
           ${summaryHtml}
         </div>
       </div>
