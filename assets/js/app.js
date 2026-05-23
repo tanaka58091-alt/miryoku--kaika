@@ -506,6 +506,107 @@
     return ((c.venusSign % 6) + 6) % 6;
   }
 
+  // ============================================================
+  // ★ NEW: パーソナル・シグネチャ（動的に毎カテゴリーの導入を合成）
+  //  - 6つの占術値（太陽/日干/動物/九星/金星/ライフパス）を組み合わせ
+  //  - 「同じ生年月日では同じ・違う生年月日では必ず違う」固有テキストを生成
+  //  - カテゴリーごとに異なる導入文（openersByCat）で表現の重複を回避
+  // ============================================================
+  function personalSignature(c, catId){
+    const PS = D.PERSONAL_SIG; if (!PS) return '';
+    const z       = D.ZODIAC[c.sunSign];
+    const stem    = D.STEMS[c.dayStem] || {};
+    const animal  = D.ANIMALS[c.animal.animal] || {};
+    const venus   = D.ZODIAC[c.venusSign];
+    const lp      = c.lifePath;
+
+    const openers = (PS.openersByCat && PS.openersByCat[catId]) || PS.openersByCat.cat1 || [''];
+    const opener  = openers[(c.sunSign + c.lifePath + c.dayStem) % openers.length];
+    const core    = PS.zodiacCore[c.sunSign] || '';
+    const stemP   = PS.stemPhrase[c.dayStem] || '';
+    const animP   = PS.animalPhrase[c.animal.animal] || '';
+    const nineIdx = ((c.nineStar || 1) - 1 + 9) % 9;
+    const nineP   = PS.ninePhrase[nineIdx] || '';
+    const venusP  = PS.venusPhrase[c.venusSign] || '';
+    const lpP     = PS.lpClose[lp] || '';
+
+    const p = STATE.profile || {};
+    const nameDisp = (p.sei || p.mei) ? `${escapeHtml(p.sei)}${escapeHtml(p.mei)} 様` : 'あなた';
+    const birth = (p.y && p.m && p.d) ? `${p.y}年${p.m}月${p.d}日${p.hour !== null && p.hour !== undefined && p.hour !== '' ? ' '+p.hour+'時頃' : ''}生まれ` : '';
+
+    return `
+      <div class="fortune-card personal-sig-card" style="background:linear-gradient(135deg,#fff8f3 0%,#ffeee1 100%);border:1px solid #e6c8a8;">
+        <div class="personal-sig-deco" style="text-align:center;font-size:11px;letter-spacing:.3em;color:#b48a5c;margin-bottom:.4rem;">✦ JUST FOR YOU ✦</div>
+        <div class="fortune-head">
+          <div class="fortune-name">この章は、${nameDisp}だけのために</div>
+          <div class="fortune-result">${escapeHtml(z.name)} × ${escapeHtml(stem.name || '')} × ${escapeHtml(animal.name || '')}</div>
+        </div>
+        <div class="fortune-body">
+          <p class="personal-sig-text" style="line-height:1.9;">${escapeHtml(opener)}<br>
+            あなたの核は${escapeHtml(core)}。<br>
+            そこに日柱の${escapeHtml(stemP)}が重なり、表に出ると${escapeHtml(animP)}という顔になる。<br>
+            九星は${escapeHtml(nineP)}を、金星は${escapeHtml(venusP)}を、あなたの内側に置いている。<br>
+            その全てが指し示すのは、${escapeHtml(lpP)}——これがあなたの方向性です。
+          </p>
+          <p class="personal-sig-tail" style="font-size:12px;color:#8a6a4a;margin-top:.6rem;">
+            ${escapeHtml(birth)}という、宇宙でただ一通りの組み合わせから生まれた、この章だけの導入です。
+          </p>
+        </div>
+        <div class="fortune-note">※ 同じ星座・同じ干でも、この組み合わせを持つ人は他に居ません。「私のために書かれている」と感じる部分だけ受け取って。</div>
+      </div>
+    `;
+  }
+
+  // ============================================================
+  // ★ NEW: 悩み入力 → 処方箋（buildReport 末尾に挿入）
+  // ============================================================
+  function worryPrescription(c){
+    const p = STATE.profile || {};
+    if (!p.worryCat && !(p.worryText && p.worryText.length)) return '';
+    const w = D.WORRY && D.WORRY[p.worryCat];
+    const intro = (D.WORRY_PRESCRIPTION_INTRO && D.WORRY_PRESCRIPTION_INTRO[p.worryCat]) || '';
+    const z = D.ZODIAC[c.sunSign];
+    const elem = z.element;
+    const innateTxt = (w && w.innate && w.innate[elem]) || '';
+    const acquiredTxt = (w && w.acquired && w.acquired[elem]) || '';
+    const actionsTxt = (w && w.actions) || '';
+
+    const userVoiceHtml = p.worryText ? `
+      <div class="block" style="background:#fffaf3;border-left:4px solid #c89c6a;padding:1rem 1.2rem;margin:1rem 0;">
+        <h3 style="margin:0 0 .4rem 0;">あなた自身の言葉で書いてくれた悩み</h3>
+        <p style="white-space:pre-wrap;line-height:1.8;">${escapeHtml(p.worryText)}</p>
+      </div>` : '';
+
+    const labelTxt = (w && w.label) || '（カテゴリー未選択）';
+
+    return `
+      <div class="report-section worry-section">
+        <h2>08　あなたのお悩みへの処方箋</h2>
+        <div class="section-sub">あなたが入力した「悩み」を、占術の言葉で読み解き直す</div>
+
+        <div class="block">
+          <h3>選んだテーマ</h3>
+          <p><strong>${escapeHtml(labelTxt)}</strong></p>
+        </div>
+
+        ${intro ? `<div class="block"><h3>このテーマの読み解き</h3><p>${escapeHtml(intro)}</p></div>` : ''}
+
+        ${innateTxt ? `<div class="block"><h3>あなたが本来持っている力（先天）</h3><p>${escapeHtml(innateTxt)}</p></div>` : ''}
+
+        ${acquiredTxt ? `<div class="block"><h3>これから整えていく方向（後天）</h3><p>${escapeHtml(acquiredTxt)}</p></div>` : ''}
+
+        ${actionsTxt ? `<div class="block"><h3>今日からできる具体アクション</h3><p>${escapeHtml(actionsTxt)}</p></div>` : ''}
+
+        ${userVoiceHtml}
+
+        <div class="block block-final">
+          <h3>このお悩みに対する、占術からのひと言</h3>
+          <p>悩みの形は人それぞれですが、占術的に見ると「今あなたが感じている苦しさ」は、本来の${escapeHtml(elem)}の質が出しきれずに詰まっているサインです。${escapeHtml(z.name)}・${escapeHtml(elem)}のあなたが本来の流れに戻れば、この悩みは自然と形を変えます。今日の小さな一歩から始めてください。</p>
+        </div>
+      </div>
+    `;
+  }
+
   // ---------- カテゴリ1: 本質の私を知る（先天性） ----------
   function renderCat1(c) {
     const z = D.ZODIAC[c.sunSign];
@@ -552,6 +653,8 @@
         <p>東西の占術を統合し、あなたが生まれ持った"魂の設計図"を多角的にひも解きます。</p>
       </div>
 
+      ${personalSignature(c, 'cat1')}
+
       ${essenceCard}
 
       ${buildSynthesisCard(c)}
@@ -574,8 +677,9 @@
         `<p><span class="label">運命数</span> ${c.sixStar.number}</p>
          <div class="rich">${six.innate}</div>`)}
 
-      ${fortuneCard('動物占い', `${animal.emoji} ${animal.name}（No.${c.animal.number}）`,
-        `<div class="rich">${animal.innate}</div>`)}
+      ${fortuneCard('動物占い', `${animal.emoji} ${animal.name}（No.${c.animal.number}：${escapeHtml((D.ANIMAL_60_TAG && D.ANIMAL_60_TAG[c.animal.number - 1]) || animal.name)}）`,
+        `<div class="rich">${animal.innate}</div>`,
+        '※ 動物占いは流派により若干の差異があります。本書記載のNo.とは±数日のズレが出る場合があります。')}
     `;
   }
 
@@ -591,6 +695,8 @@
         <h2>表面の私を知る</h2>
         <p>「自分が思っている自分」と「他人から見えている自分」のギャップを可視化します。</p>
       </div>
+
+      ${personalSignature(c, 'cat2')}
 
       <div class="fortune-card omote-card">
         <div class="omote-deco">◇ GAP ◇</div>
@@ -649,6 +755,8 @@
         <p>「だから今まで苦しかったんだ」が分かる、後天的に形成された心のクセと、それが身体にどう出ているかを解き明かします。</p>
       </div>
 
+      ${personalSignature(c, 'cat3')}
+
       <div class="fortune-card hizumi-card">
         <div class="hizumi-deco">◆ DEEP ◆</div>
         <div class="fortune-head">
@@ -699,6 +807,8 @@
         <p>未来予言ではなく「今どこにいて、どう生きるべきか」を読み解きます。</p>
       </div>
 
+      ${personalSignature(c, 'cat4')}
+
       <div class="fortune-card stage-card">
         <div class="stage-deco">◈ STAGE ◈</div>
         <div class="fortune-head">
@@ -745,6 +855,8 @@
         <h2>美の才能診断</h2>
         <p>あなたの魅力が最大化する"美の世界観"を6タイプから診断します。</p>
       </div>
+
+      ${personalSignature(c, 'cat5')}
 
       <div class="fortune-card beauty-type-card">
         <div class="beauty-deco">✿ BEAUTY ✿</div>
@@ -818,6 +930,8 @@
         <p>占いを「見て終わり」にしないための、あなた専用12領域の具体ルーチン。</p>
       </div>
 
+      ${personalSignature(c, 'cat6')}
+
       <div class="fortune-card action-card">
         <div class="action-deco">★ ACTION ★</div>
         <div class="fortune-head">
@@ -854,6 +968,8 @@
         <h2>あなたの人生ロードマップ</h2>
         <p>占いを超えた、あなただけの人生変革設計図。これからどう生きれば本当に楽になるかを描きます。</p>
       </div>
+
+      ${personalSignature(c, 'cat7')}
 
       <div class="fortune-card roadmap-card">
         <div class="roadmap-deco">◆ ROADMAP ◆</div>
@@ -1051,6 +1167,8 @@
           <div class="section-sub">設計図 ／ 手放すもの・伸ばすもの・3ヶ月後・1年後</div>
           ${stripHeader(STATE.results.cat7.html)}
         </div>
+
+        ${worryPrescription(calc)}
 
         <div class="report-section report-summary">
           <h2>総括 ／ ここから始まる、本当のあなた</h2>
