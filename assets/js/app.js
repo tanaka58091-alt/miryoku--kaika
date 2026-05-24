@@ -1170,6 +1170,16 @@
 
         ${worryPrescription(calc)}
 
+        <div class="report-section report-ai" id="report-ai-section">
+          <h2>09　AI占い師「美瑛」からの直筆診断</h2>
+          <div class="section-sub">複数占術 × 40年経験のAI占い師が、あなただけに書き下ろす最終診断</div>
+          <div class="block" id="report-ai-placeholder" style="background:linear-gradient(135deg,#fff8f3 0%,#ffeee1 100%);border:1px solid #e6c8a8;padding:1.4rem;text-align:center;">
+            <p style="margin:0 0 .6rem 0;font-weight:600;color:#8a5a2c;">✦ AIが、あなたの全占術結果と悩みを統合中… ✦</p>
+            <p style="margin:0;font-size:13px;color:#a07a5a;">通常30秒〜1分ほどお待ちください。完了後、この場所に直筆診断が表示されます。</p>
+            <div style="margin-top:.8rem;font-size:11px;color:#b08a6a;">※ AIが応答しない場合や通信エラー時は、この章はスキップされます（他の診断には影響しません）</div>
+          </div>
+        </div>
+
         <div class="report-section report-summary">
           <h2>総括 ／ ここから始まる、本当のあなた</h2>
           <div class="section-sub">7つの診断を、1つに結んで</div>
@@ -1179,6 +1189,51 @@
     `;
 
     $('#report-content').innerHTML = report;
+
+    // AI 総合シンセシスを非同期生成（バックグラウンド）
+    triggerAISynthesis(calc);
+  }
+
+  // ---------- AI シンセシス（バックグラウンド実行 + プレースホルダ差し替え） ----------
+  let _aiInflight = false;
+  async function triggerAISynthesis(calc){
+    if (!window.ClaudeAPI || !window.ClaudeAPI.generateLifeSynthesis) return;
+    if (_aiInflight) return;
+    const placeholder = document.getElementById('report-ai-placeholder');
+    if (!placeholder) return;
+    _aiInflight = true;
+    try {
+      const text = await window.ClaudeAPI.generateLifeSynthesis(STATE.profile, calc);
+      const fresh = document.getElementById('report-ai-placeholder');
+      if (!fresh) return; // レポート再生成で要素が消えた場合
+      if (text) {
+        const safe = sanitizeAiHtml(text);
+        fresh.outerHTML = `<div class="block" style="background:linear-gradient(135deg,#fff8f3 0%,#ffeee1 100%);border:1px solid #e6c8a8;padding:1.4rem;">${safe}<div style="margin-top:1.2rem;font-size:11px;color:#b08a6a;border-top:1px dashed #e6c8a8;padding-top:.6rem;">— AI占い師「美瑛」（Claude Opus 4.5）による、あなたの占術結果と悩みを統合した直筆診断 —</div></div>`;
+      } else {
+        fresh.outerHTML = `<div class="block" style="background:#faf6f0;border:1px solid #ddd;padding:1.2rem;text-align:center;color:#888;font-size:13px;">AI診断は、現在ご利用いただけません（通信またはAPI応答エラー）。他の診断結果はそのまま有効です。</div>`;
+      }
+    } catch(err) {
+      console.error('[AI synthesis]', err);
+      const fresh = document.getElementById('report-ai-placeholder');
+      if (fresh) fresh.outerHTML = `<div class="block" style="background:#faf6f0;border:1px solid #ddd;padding:1.2rem;text-align:center;color:#888;font-size:13px;">AI診断は、現在ご利用いただけません。他の診断結果はそのまま有効です。</div>`;
+    } finally {
+      _aiInflight = false;
+    }
+  }
+
+  // AI出力（HTML文字列）のサニタイズ：許可タグ以外は除去
+  function sanitizeAiHtml(raw){
+    if (!raw) return '';
+    // コードブロックマーカ除去
+    let s = String(raw).replace(/```html\s*/gi, '').replace(/```\s*$/g, '').trim();
+    // 単純なホワイトリストフィルタ（<script>等を完全除去）
+    s = s.replace(/<\/?(?!\/?(?:h3|h4|p|strong|em|ul|li|br|div|span)\b)[a-zA-Z][^>]*>/g, '');
+    // <script>...</script> や on*= 属性を念のため除去
+    s = s.replace(/<script[\s\S]*?<\/script>/gi, '');
+    s = s.replace(/\son\w+\s*=\s*"[^"]*"/gi, '');
+    s = s.replace(/\son\w+\s*=\s*'[^']*'/gi, '');
+    s = s.replace(/javascript:/gi, '');
+    return s;
   }
 
   // ---------- PDF出力 ----------
