@@ -2518,161 +2518,20 @@
     return s;
   }
 
-  // ---------- PDF出力 ----------
-  // 巨大な1枚キャンバスは作らず、レポートをセクション単位（report-cover / report-section）に分けて
-  // 1セクション=1枚のキャンバスとしてキャプチャ→jsPDFに貼り付ける。
-  // これにより、モバイルSafariのキャンバスサイズ上限（4096〜16384px）を回避し、
-  // どの端末でも安定して PDF が生成できる。
-  const PDF_CAPTURE_WIDTH = 800;
-  const PDF_CAPTURE_SCALE = 1.5;
-
-  async function waitFonts(){
-    try { if (document.fonts && document.fonts.ready) await document.fonts.ready; } catch(_){}
-  }
-
-  // セクション単位でクローンを作って html2canvas に渡す
-  async function captureSectionToCanvas(sectionEl){
-    const wrap = document.createElement('div');
-    wrap.style.cssText = [
-      'position:fixed',
-      'left:0',
-      'top:0',
-      'transform:translate(-10000px,0)',
-      'width:' + PDF_CAPTURE_WIDTH + 'px',
-      'background:#ffffff',
-      'z-index:-1',
-      'pointer-events:none'
-    ].join(';');
-    const clone = sectionEl.cloneNode(true);
-    clone.style.width = PDF_CAPTURE_WIDTH + 'px';
-    clone.style.margin = '0';
-    wrap.appendChild(clone);
-    document.body.appendChild(wrap);
-
-    await new Promise(r => requestAnimationFrame(() => requestAnimationFrame(r)));
-
-    try {
-      const canvas = await html2canvas(clone, {
-        scale: PDF_CAPTURE_SCALE,
-        useCORS: true,
-        backgroundColor: '#ffffff',
-        width: PDF_CAPTURE_WIDTH,
-        windowWidth: PDF_CAPTURE_WIDTH,
-        scrollX: 0,
-        scrollY: 0,
-        logging: false
-      });
-      return canvas;
-    } finally {
-      try { document.body.removeChild(wrap); } catch(_){}
-    }
-  }
-
-  $('#btn-download-pdf').addEventListener('click', async () => {
-    const reportBody = document.getElementById('report-body');
-    if (!reportBody) {
+  // ---------- PDF出力（ブラウザ印刷ダイアログ → 「PDFに保存」） ----------
+  $('#btn-download-pdf').addEventListener('click', () => {
+    // 大量DOMの html2canvas は速度・安定性に限界があるため、
+    // ブラウザの印刷機能（→「PDFに保存」）に切り替え。
+    // 印刷用CSS（@media print）でナビやボタンを非表示にしてある。
+    const reportRoot = document.getElementById('report-content');
+    if (!reportRoot || reportRoot.children.length === 0) {
       alert('レポートが生成されていません。');
       return;
     }
-    if (!window.html2canvas || !window.jspdf) {
-      alert('PDFライブラリの読み込みに失敗しました。インターネット接続をご確認ください。');
-      return;
-    }
-
-    showLoading(true);
-
-    try {
-      await waitFonts();
-
-      // 表紙＋各セクションを順番に取得
-      const blocks = Array.from(
-        reportBody.querySelectorAll('.report-cover, .report-section')
-      );
-      if (blocks.length === 0) throw new Error('セクションが見つかりません');
-
-      const { jsPDF } = window.jspdf;
-      const pdf = new jsPDF('p', 'mm', 'a4');
-      const pageW = pdf.internal.pageSize.getWidth();   // 210mm
-      const pageH = pdf.internal.pageSize.getHeight();  // 297mm
-      const marginMm = 8;                                // ページ余白
-      const usableW = pageW - marginMm * 2;
-      const usableH = pageH - marginMm * 2;
-
-      let pageIndex = 0;
-      let yCursor = marginMm;                            // 現ページ内のy位置（mm）
-
-      for (let i = 0; i < blocks.length; i++) {
-        const canvas = await captureSectionToCanvas(blocks[i]);
-        if (!canvas || !canvas.width || !canvas.height) continue;
-
-        const imgW_mm = usableW;
-        const imgH_mm = (canvas.height / canvas.width) * imgW_mm;
-
-        // ページ内に収まらないときの処理
-        if (imgH_mm <= usableH) {
-          // セクションが1ページ未満：余白がなければ改ページ
-          if (yCursor + imgH_mm > marginMm + usableH) {
-            pdf.addPage();
-            pageIndex++;
-            yCursor = marginMm;
-          }
-          if (pageIndex === 0 && yCursor === marginMm && i === 0) {
-            // 1ページ目の初回はaddPage不要
-          }
-          const imgData = canvas.toDataURL('image/jpeg', 0.9);
-          pdf.addImage(imgData, 'JPEG', marginMm, yCursor, imgW_mm, imgH_mm, undefined, 'FAST');
-          yCursor += imgH_mm + 4; // ブロック間の余白
-        } else {
-          // セクション自体が1ページ超：そのセクション専用にページを起こして縦分割する
-          if (yCursor > marginMm) {
-            pdf.addPage();
-            pageIndex++;
-            yCursor = marginMm;
-          }
-          const pxPerMm = canvas.width / usableW;
-          const pageHeightPx = Math.floor(usableH * pxPerMm);
-          let renderedH = 0;
-          let first = true;
-          while (renderedH < canvas.height) {
-            const sliceH = Math.min(pageHeightPx, canvas.height - renderedH);
-            const sliceCanvas = document.createElement('canvas');
-            sliceCanvas.width = canvas.width;
-            sliceCanvas.height = sliceH;
-            const sctx = sliceCanvas.getContext('2d');
-            sctx.fillStyle = '#ffffff';
-            sctx.fillRect(0, 0, sliceCanvas.width, sliceCanvas.height);
-            sctx.drawImage(canvas, 0, renderedH, canvas.width, sliceH, 0, 0, canvas.width, sliceH);
-            const imgData = sliceCanvas.toDataURL('image/jpeg', 0.9);
-            const sliceH_mm = (sliceH / canvas.width) * imgW_mm;
-            if (!first) {
-              pdf.addPage();
-              pageIndex++;
-            }
-            pdf.addImage(imgData, 'JPEG', marginMm, marginMm, imgW_mm, sliceH_mm, undefined, 'FAST');
-            renderedH += sliceH;
-            first = false;
-          }
-          yCursor = marginMm + ((canvas.height % pageHeightPx) || pageHeightPx) / pxPerMm + 4;
-          if (yCursor > marginMm + usableH - 20) {
-            // 残り余白が少ない場合は次セクションを新ページから
-            pdf.addPage();
-            pageIndex++;
-            yCursor = marginMm;
-          }
-        }
-      }
-
-      const p = STATE.profile;
-      const nm = (p && (p.sei || p.mei)) ? `${p.sei}${p.mei}` : 'あなた';
-      const dt = new Date();
-      const fileName = `魅力開花診断_${nm}_${dt.getFullYear()}${String(dt.getMonth()+1).padStart(2,'0')}${String(dt.getDate()).padStart(2,'0')}.pdf`;
-
-      pdf.save(fileName);
-    } catch (err) {
-      console.error('[PDF]', err);
-      alert('PDF生成に失敗しました。ページを更新してから、もう一度お試しください。\n（' + (err && err.message ? err.message : '不明なエラー') + '）');
-    } finally {
-      showLoading(false);
+    try { window.scrollTo(0, 0); } catch(_){}
+    try { window.print(); } catch (err) {
+      console.error('[PRINT]', err);
+      alert('印刷ダイアログを開けませんでした。ブラウザのメニューから「印刷」を選び、送信先を「PDFに保存」にしてください。');
     }
   });
 
