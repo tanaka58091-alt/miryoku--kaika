@@ -168,6 +168,18 @@
       worryText
     };
     STATE.results = {};
+    STATE.photoAnalysis = { palm: null, face: null }; // 解析結果のキャッシュ
+    // 写真がある場合、ブラウザ内で簡易解析を非同期実行（外部送信なし）
+    if (window.PhotoAnalysis) {
+      if (STATE.profile.palmPhoto) {
+        window.PhotoAnalysis.analyzePalm(STATE.profile.palmPhoto, y, m, d)
+          .then(r => { if (r) STATE.photoAnalysis.palm = r; });
+      }
+      if (STATE.profile.facePhoto) {
+        window.PhotoAnalysis.analyzeFace(STATE.profile.facePhoto, y, m, d)
+          .then(r => { if (r) STATE.photoAnalysis.face = r; });
+      }
+    }
     renderProfileSummary();
     updateMenuStatus();
     showScreen('screen-menu');
@@ -219,6 +231,11 @@
     const nineStar = F.calcNineStar(y, m, d);
     const venusSign= F.calcVenusSign(y, m, d);
     const ascendant= F.calcAscendant(y, m, d, hour);
+    const moonSign    = F.calcMoonSign    ? F.calcMoonSign(y, m, d)    : sunSign;
+    const mercurySign = F.calcMercurySign ? F.calcMercurySign(y, m, d) : sunSign;
+    const marsSign    = F.calcMarsSign    ? F.calcMarsSign(y, m, d)    : sunSign;
+    const jupiterSign = F.calcJupiterSign ? F.calcJupiterSign(y, m, d) : sunSign;
+    const saturnSign  = F.calcSaturnSign  ? F.calcSaturnSign(y, m, d)  : sunSign;
     const seimei   = F.calcSeimei(sei, mei);
     const seimeiCat= seimei.sokaku ? F.seimeiCategory(seimei.sokaku) : null;
     const palmType = F.calcPalmType(y, m, d);
@@ -227,16 +244,64 @@
     const nineCur  = F.currentNineStarYear();
     // 算命学：日干から主星にマッピング（簡易）
     const sanmeiIdx = dayStem; // 0〜9
+    // 算命学：12従星（日干×年支）
+    const jushoIdx = F.calc12Jusho ? F.calc12Jusho(dayStem, yearBranch) : 0;
+    // 四柱推命：通変星（日干 vs 年干）
+    const yearStem = F.calcYearStem(y, m, d);
+    const tsuuhenIdx = F.calcTsuuhen ? F.calcTsuuhen(dayStem, yearStem) : 0;
+    // v=9 新規：ルーン／易経／夢占い 決定論的インデックス
+    const runeIdx   = F.calcRune   ? F.calcRune(y, m, d)   : 0;
+    const ichingIdx = F.calcIching ? F.calcIching(y, m, d) : 0;
+    const dreamIdx  = F.calcDream  ? F.calcDream(y, m, d)  : 0;
+    // v=10 新規：タロット小アルカナ決定論的インデックス
+    const minorTarotIdx = F.calcMinorTarot ? F.calcMinorTarot(y, m, d) : 0;
+    // v=10 新規：数秘術 5数
+    const soulNum        = F.calcSoulNum        ? F.calcSoulNum(seimei)              : 0;
+    const personalityNum = F.calcPersonalityNum ? F.calcPersonalityNum(seimei)       : 0;
+    const maturityNum    = F.calcMaturityNum    ? F.calcMaturityNum(lifePath, soulNum) : 0;
+    // v=10 新規：算命学 宿命星（月支配置・日支配置）
+    const monthBranch  = F.calcMonthBranch  ? F.calcMonthBranch(m, d)                     : 0;
+    const shukumeisei  = F.calcShukumeisei  ? F.calcShukumeisei(dayStem, monthBranch, dayBranch) : { gessei:0, nissei:0 };
+    // v=10 新規：四柱推命 命式全体（年月日時の4柱）
+    const meishiki     = F.calcMeishiki     ? F.calcMeishiki(y, m, d, hour) : null;
+    // v=11 新規：アスペクト
+    const aspects = F.calcAspects ? F.calcAspects({
+      sun: sunSign, moon: moonSign, mercury: mercurySign,
+      venus: venusSign, mars: marsSign, jupiter: jupiterSign, saturn: saturnSign
+    }) : [];
+    // v=11 新規：トランジット詳細
+    const transitDetail = F.calcTransitHouse ? F.calcTransitHouse(ascendant) : null;
+    // v=11 新規：大運
+    const daiun = (F.calcDaiUn && meishiki) ? F.calcDaiUn(y, m, d, 1, meishiki.month.stem, meishiki.month.branch) : null;
+    // v=11 新規：用神・忌神
+    const youjin = (F.calcYoujin && meishiki) ? F.calcYoujin(meishiki) : null;
+    // v=11 新規：ケルト十字
+    const celticCross = F.drawCelticCross ? F.drawCelticCross(y, m, d) : [];
+    // v=11 新規：算命学 干合・支合・冲・刑
+    const kanshiRel = (F.calcKanshiRelations && meishiki) ? F.calcKanshiRelations(meishiki) : null;
+    // v=11 新規：月命星・日命星
+    const monthlyStar = F.calcMonthlyStar ? F.calcMonthlyStar(y, m, d) : 0;
+    const dailyStar = F.calcDailyStar ? F.calcDailyStar(new Date().getFullYear(), new Date().getMonth()+1, new Date().getDate()) : 0;
+    // v=11 新規：易経 変爻・之卦
+    const ichingHenga = F.calcHengaIching ? F.calcHengaIching(y, m, d) : null;
 
     return {
       sunSign, lifePath, birthNum,
       dayStem, dayBranch, yearBranch,
       animal, sixStar, nineStar,
       venusSign, ascendant,
+      moonSign, mercurySign, marsSign, jupiterSign, saturnSign,
       seimei, seimeiCat,
       palmType, faceType,
       yearLuck, nineCur,
-      sanmeiIdx
+      sanmeiIdx, jushoIdx, tsuuhenIdx, yearStem,
+      runeIdx, ichingIdx, dreamIdx, minorTarotIdx,
+      soulNum, personalityNum, maturityNum,
+      monthBranch, shukumeisei,
+      meishiki,
+      aspects, transitDetail, daiun, youjin,
+      celticCross, kanshiRel,
+      monthlyStar, dailyStar, ichingHenga
     };
   }
 
@@ -662,6 +727,10 @@
       ${fortuneCard('西洋占星術 / 太陽星座', `${z.symbol} ${z.name}（${z.period}）`,
         `<div class="rich">${z.innate}</div>`)}
 
+      ${multiPlanetCard(c)}
+
+      ${astroHousesCard(c)}
+
       ${fortuneCard('四柱推命 / 日干', stem.name,
         `<p><span class="label">五行</span> ${stem.element}</p>
          <div class="rich">${stem.innate}</div>`)}
@@ -670,17 +739,74 @@
         `<div class="rich">${sanmei.msg}</div>`,
         '※ 日干より導き出した略式の主星診断です。')}
 
+      ${jushoTsuuhenCard(c)}
+
       ${fortuneCard('数秘術 / ライフパスナンバー', `${c.lifePath}　${lp.title}`,
         `<div class="rich">${lp.innate}</div>`)}
 
-      ${fortuneCard('六星占術', six.name,
-        `<p><span class="label">運命数</span> ${c.sixStar.number}</p>
-         <div class="rich">${six.innate}</div>`)}
+      ${numerology5Card(c)}
 
-      ${fortuneCard('動物占い', `${animal.emoji} ${animal.name}（No.${c.animal.number}：${escapeHtml((D.ANIMAL_60_TAG && D.ANIMAL_60_TAG[c.animal.number - 1]) || animal.name)}）`,
-        `<div class="rich">${animal.innate}</div>`,
-        '※ 動物占いは流派により若干の差異があります。本書記載のNo.とは±数日のズレが出る場合があります。')}
+      ${fortuneCard('六星占術', `${six.name}${c.sixStar.polarity === 'plus' ? '＋（陽性）' : '−（陰性）'}`,
+        `<p><span class="label">運命数</span> ${c.sixStar.number}</p>
+         <div class="rich">${six.innate}</div>
+         <div class="rich">${(c.sixStar.polarity === 'plus' ? six.plus : six.minus) || ''}</div>`,
+        '※ 細木数子流の六星占術に準拠。運命数1〜60を10刻みで6星（土星人・金星人・火星人・天王星人・木星人・水星人）に分け、奇数=陽性／偶数=陰性で計12タイプに細分。'
+      )}
+
+      ${animal60Card(c)}
+
+      ${seimeiCard(c)}
+
+      ${seimeiGokakuCard(c)}
+
+      ${shukumeiseiCard(c)}
+
+      ${meishikiCard(c)}
+
+      ${aspectsCard(c)}
+
+      ${daiunCard(c)}
+
+      ${youjinCard(c)}
+
+      ${kanshiRelCard(c)}
     `;
+  }
+
+  // ---------- 個性心理學®60キャラ カード（公式運命数準拠） ----------
+  function animal60Card(c){
+    const a = c.animal;
+    // 新ロジック（Animal60）の結果が入っていればフル表示
+    if (a && a.char && a.group){
+      const ch = a.char;
+      const gp = a.group;
+      return `
+        <div class="fortune-card animal60-card" style="background:linear-gradient(135deg,#fff5f0 0%,#ffe4d6 100%);border:1px solid #f0c8a8;">
+          <div style="text-align:center;font-size:11px;letter-spacing:.3em;color:#b48a5c;margin-bottom:.4rem;">✦ 個性心理學®60キャラ ✦</div>
+          <div class="fortune-head">
+            <div class="fortune-name">動物占い（個性心理學®）</div>
+            <div class="fortune-result" style="font-size:1.15em;">${gp.emoji} No.${a.number}　${escapeHtml(ch.name)}</div>
+            <div style="font-size:13px;color:#a07a5a;margin-top:.3rem;">12動物グループ：<strong>${escapeHtml(gp.name)}（${escapeHtml(gp.element)}）</strong></div>
+          </div>
+          <div class="fortune-body">
+            <div class="rich">
+              <h4>本質</h4><p>${escapeHtml(ch.essence)}</p>
+              <h4>恋愛・パートナーシップ</h4><p>${escapeHtml(ch.love)}</p>
+              <h4>仕事・天職</h4><p>${escapeHtml(ch.work)}</p>
+              <h4>お金との付き合い</h4><p>${escapeHtml(ch.money)}</p>
+              <h4>人間関係</h4><p>${escapeHtml(ch.human)}</p>
+              <h4>今日からできる開運アクション</h4><p>${escapeHtml(ch.luck)}</p>
+            </div>
+          </div>
+          <div class="fortune-note">※ 個性心理學®（弦本將裕氏体系）の公式運命数計算に準拠。60キャラ × 12動物グループから、あなただけの組み合わせを導き出しています。</div>
+        </div>
+      `;
+    }
+    // フォールバック（旧表示）
+    const animal = D.ANIMALS[a.animal] || { name:'-', emoji:'', innate:'' };
+    return fortuneCard('動物占い', `${animal.emoji} ${animal.name}（No.${a.number}）`,
+      `<div class="rich">${animal.innate}</div>`,
+      '※ 動物占いは流派により若干の差異があります。');
   }
 
   // ---------- カテゴリ2: 表面の私を知る（社会性） ----------
@@ -789,6 +915,8 @@
         </div>
         <div class="fortune-note">※ 「あぁ、私のことだ」と感じたら、それが回復の入口です。歪みは"悪"ではなく、生きるために必要だった守りの形。気づいた今から、ゆっくり手放していけます。</div>
       </div>
+
+      ${dreamCard(c)}
     `;
   }
 
@@ -838,6 +966,8 @@
         </div>
         <div class="fortune-note">※ 人生のステージは数年単位で動きます。今の自分を否定せず、「このステージで何ができるか」だけに集中して。</div>
       </div>
+
+      ${runeCard(c)}
     `;
   }
 
@@ -890,7 +1020,1153 @@
         <div class="fortune-note">※ 金星星座「${escapeHtml(venus.name)}」とあなたの本質を統合した、あなただけの美の方向性です。</div>
       </div>
 
+      ${palmFaceCard(c)}
+
+      ${palmSignsCard(c)}
+
+      ${transitDetailCard(c)}
+
+      ${kyuusei2Card(c)}
+
       ${buildLifecycleCard(c)}
+    `;
+  }
+
+  // ---------- 手相・人相カード（写真があれば簡易解析、なければ生年月日由来） ----------
+  function palmFaceCard(c){
+    const p = STATE.profile || {};
+    const PALM = D.PALM || [];
+    const FACE = D.FACE || [];
+    // 写真解析の結果を優先、なければ生年月日由来でフォールバック
+    let palmRes = STATE.photoAnalysis && STATE.photoAnalysis.palm;
+    let faceRes = STATE.photoAnalysis && STATE.photoAnalysis.face;
+    if (!palmRes && PALM.length){
+      const idx = c.palmType != null ? c.palmType % PALM.length : 0;
+      palmRes = { index: idx, type: PALM[idx], hasPhoto: false, readings: [] };
+    }
+    if (!faceRes && FACE.length){
+      const idx = c.faceType != null ? c.faceType % FACE.length : 0;
+      faceRes = { index: idx, type: FACE[idx], hasPhoto: false, readings: [] };
+    }
+    if (!palmRes && !faceRes) return '';
+
+    const photoNote = (hasPhoto) => hasPhoto
+      ? '<span class="badge-photo" style="display:inline-block;background:#7ab395;color:#fff;font-size:11px;padding:2px 8px;border-radius:10px;margin-left:.4rem;">📷 写真解析あり</span>'
+      : '<span style="font-size:11px;color:#9a8a72;margin-left:.4rem;">（写真未添付：生年月日による略式診断）</span>';
+
+    function readingsHtml(readings){
+      if (!readings || !readings.length) return '';
+      return `<div class="rich"><h4>あなたの写真から読み取れる傾向</h4><ul>${
+        readings.map(r => `<li>${escapeHtml(r)}</li>`).join('')
+      }</ul></div>`;
+    }
+
+    function detailHtml(type, color){
+      const d = type && type.detail;
+      if (!d) return '';
+      const axes = [
+        { key:'chara',  label:'🌸 性格', text:d.chara },
+        { key:'love',   label:'💗 恋愛', text:d.love },
+        { key:'work',   label:'💼 仕事', text:d.work },
+        { key:'health', label:'🌿 健康', text:d.health }
+      ].filter(a => a.text);
+      if (!axes.length) return '';
+      return `<div style="margin-top:.6rem;">${axes.map(a => `
+        <div style="padding:.5rem .7rem;margin:.3rem 0;background:#fffdfa;border-left:3px solid ${color};border-radius:0 8px 8px 0;">
+          <div style="font-size:11px;color:${color};font-weight:700;margin-bottom:.2rem;letter-spacing:.05em;">${a.label}</div>
+          <div style="font-size:12.5px;color:#4a3a1a;line-height:1.6;">${escapeHtml(a.text)}</div>
+        </div>
+      `).join('')}</div>`;
+    }
+
+    function photoThumb(dataUrl){
+      if (!dataUrl) return '';
+      return `<div style="text-align:center;margin:.6rem 0;"><img src="${dataUrl}" alt="" style="max-width:140px;max-height:140px;border-radius:8px;border:2px solid #f0c8a8;object-fit:cover;" /></div>`;
+    }
+
+    const palmBlock = palmRes ? `
+      <div class="fortune-card" style="background:linear-gradient(135deg,#fef9f3 0%,#fde8d4 100%);border:1px solid #e8c8a0;">
+        <div style="text-align:center;font-size:11px;letter-spacing:.3em;color:#b48a5c;margin-bottom:.4rem;">✋ 手相診断 ✋</div>
+        <div class="fortune-head">
+          <div class="fortune-name">手相 ${photoNote(palmRes.hasPhoto)}</div>
+          <div class="fortune-result">${escapeHtml(palmRes.type.name)}</div>
+        </div>
+        <div class="fortune-body">
+          ${photoThumb(p.palmPhoto)}
+          <div class="rich">${palmRes.type.msg}</div>
+          ${detailHtml(palmRes.type, '#b48a5c')}
+          ${readingsHtml(palmRes.readings)}
+        </div>
+        <div class="fortune-note">${palmRes.hasPhoto
+          ? '※ 写真は端末内のみで処理され、外部に送信されません。色味・コントラスト・線の濃淡などを画像統計として抽出し、生年月日と組み合わせて15線データベースから最も近いタイプを導き出しています。'
+          : '※ 写真未添付のため、生年月日に基づく略式の手相タイプ診断です。お手のひらの写真を添付いただくと、より精度の高い診断になります。'}</div>
+      </div>` : '';
+
+    const faceBlock = faceRes ? `
+      <div class="fortune-card" style="background:linear-gradient(135deg,#fdf5f8 0%,#f9d8e4 100%);border:1px solid #ecb8c8;">
+        <div style="text-align:center;font-size:11px;letter-spacing:.3em;color:#b06080;margin-bottom:.4rem;">💗 人相診断 💗</div>
+        <div class="fortune-head">
+          <div class="fortune-name">人相 ${photoNote(faceRes.hasPhoto)}</div>
+          <div class="fortune-result">${escapeHtml(faceRes.type.name)}</div>
+        </div>
+        <div class="fortune-body">
+          ${photoThumb(p.facePhoto)}
+          <div class="rich">${faceRes.type.msg}</div>
+          ${detailHtml(faceRes.type, '#b06080')}
+          ${readingsHtml(faceRes.readings)}
+        </div>
+        <div class="fortune-note">${faceRes.hasPhoto
+          ? '※ 写真は端末内のみで処理され、外部に送信されません。輪郭・左右対称性・血色・中心と輪郭の明度比など画像統計を抽出し、生年月日と組み合わせて12パーツデータベースから最適なタイプを導き出しています。'
+          : '※ 写真未添付のため、生年月日に基づく略式の人相タイプ診断です。お顔の写真を添付いただくと、より精度の高い診断になります。'}</div>
+      </div>` : '';
+
+    return palmBlock + faceBlock;
+  }
+
+  // ---------- 手相 特殊紋カード（v=10：細かい記号・島・スター・トライアングル等） ----------
+  function palmSignsCard(c){
+    const SIGNS = D.PALM_SIGNS || [];
+    if (!SIGNS.length) return '';
+    const p = STATE.profile || {};
+    const y = p.y || 2000, m = p.m || 1, d = p.d || 1;
+    // 決定論的に3つの記号を選出（同じ生年月日なら毎回同じ）
+    const seed = (y * 16777619) ^ (m * 524287) ^ (d * 8191);
+    const picks = [];
+    const used = new Set();
+    for (let i = 0; i < 3 && picks.length < 3 && picks.length < SIGNS.length; i++){
+      const idx = ((seed + i * 7919) >>> 0) % SIGNS.length;
+      if (!used.has(idx)){
+        used.add(idx);
+        picks.push(SIGNS[idx]);
+      } else {
+        // 重複時は線形探索
+        for (let j = 1; j < SIGNS.length; j++){
+          const k = (idx + j) % SIGNS.length;
+          if (!used.has(k)){ used.add(k); picks.push(SIGNS[k]); break; }
+        }
+      }
+    }
+    const axes = [
+      { key:'love',   label:'💗 恋愛',       color:'#b06080' },
+      { key:'work',   label:'💼 仕事',       color:'#8a6040' },
+      { key:'money',  label:'💰 金運',       color:'#8a8040' },
+      { key:'advice', label:'✨ アドバイス',   color:'#a06090' }
+    ];
+    const signsHtml = picks.map(s => {
+      const isGood = s.tone === 'good';
+      const accent = isGood ? '#7a9a6a' : '#a67878';
+      const bg     = isGood ? '#f4faf0' : '#fdf3f3';
+      const toneLabel = isGood ? '吉相' : '注意';
+      const axisHtml = axes.filter(a => s[a.key]).map(a => `
+        <div style="padding:.45rem .65rem;margin:.25rem 0;background:#fffdfa;border-left:3px solid ${a.color};border-radius:0 8px 8px 0;">
+          <div style="font-size:11px;color:${a.color};font-weight:700;margin-bottom:.2rem;letter-spacing:.05em;">${a.label}</div>
+          <div style="font-size:12px;color:#4a3a1a;line-height:1.55;">${escapeHtml(s[a.key])}</div>
+        </div>
+      `).join('');
+      return `
+        <div style="background:${bg};border-radius:10px;padding:.8rem 1rem;margin-bottom:.7rem;border-left:4px solid ${accent};">
+          <div style="display:flex;align-items:center;gap:.5rem;margin-bottom:.4rem;flex-wrap:wrap;">
+            <span style="font-size:18px;">${s.icon}</span>
+            <span style="font-size:13px;font-weight:700;color:${accent};">${escapeHtml(s.name)}</span>
+            <span style="font-size:10.5px;color:#fff;background:${accent};padding:.1rem .5rem;border-radius:8px;">${toneLabel}</span>
+            <span style="font-size:11px;color:#8a7050;">出現線：${escapeHtml(s.line)}</span>
+          </div>
+          <div style="font-size:12.5px;color:#4a3a1a;line-height:1.6;margin-bottom:.4rem;">${escapeHtml(s.meaning)}</div>
+          ${axisHtml}
+        </div>
+      `;
+    }).join('');
+    return `
+      <div class="fortune-card" style="background:linear-gradient(135deg,#fef9f3 0%,#f5dfb8 100%);border:1px solid #c8a868;">
+        <div style="text-align:center;font-size:11px;letter-spacing:.3em;color:#8a6830;margin-bottom:.4rem;">✋ 手相 特殊紋（細かい記号）読解 ✋</div>
+        <div class="fortune-head">
+          <div class="fortune-name">あなたの手に出やすい3つの紋</div>
+          <div class="fortune-result">${picks.map(s => escapeHtml(s.name)).join('／')}</div>
+        </div>
+        <div class="fortune-body">
+          ${signsHtml}
+        </div>
+        <div class="fortune-note">※ 本格手相術では主要7線（生命/感情/頭脳/運命/太陽/結婚/財運）に出る「特殊紋」が運命を細かく示します。スター・トライアングル・スクエア・魚紋などの吉紋、島・クロス・グリル・チェーン・黒点などの凶紋を、生年月日から決定論的に3つ抽出しています。実際にお手のひらを観察して照合してみてください。</div>
+      </div>
+    `;
+  }
+
+  // ---------- タロット 7ポジション・スプレッドカード ----------
+  function tarotSpreadCard(c){
+    const p = STATE.profile;
+    if (!p) return '';
+    const spread = window.FortuneCalc && window.FortuneCalc.drawTarotSpread
+      ? window.FortuneCalc.drawTarotSpread(p.year, p.month, p.day) : [];
+    if (!spread.length) return '';
+
+    const TBP = D.TAROT_BY_POSITION || {};
+    const rows = spread.map(s => {
+      const r = s.reversed;
+      const meaning = r ? s.card.rev : s.card.up;
+      const orient = r ? '逆位置' : '正位置';
+      const orientColor = r ? '#a67878' : '#7a9a6a';
+      // ポジション別の専用解釈
+      const posKey = s.position.key;
+      const posArr = TBP[posKey] || [];
+      const posSpecific = posArr[s.cardIndex] || '';
+      const posBlock = posSpecific ? `
+            <div style="margin-top:.4rem;padding:.5rem .7rem;background:#f8eef9;border-radius:8px;border-left:3px solid #9a6abd;">
+              <div style="font-size:10.5px;font-weight:700;color:#6a4a90;margin-bottom:.2rem;letter-spacing:.05em;">◆ この位置でのカード解釈</div>
+              <div style="font-size:12.5px;color:#3a2a4a;line-height:1.65;">${escapeHtml(posSpecific)}</div>
+            </div>
+          ` : '';
+      return `
+        <div style="display:flex;gap:.8rem;padding:.9rem .7rem;border-bottom:1px dashed #e7d8c4;align-items:flex-start;">
+          <div style="flex:0 0 90px;text-align:center;">
+            <div style="font-size:24px;line-height:1;">${s.position.icon}</div>
+            <div style="font-size:11px;color:#9a7a5a;margin-top:.3rem;font-weight:600;">${escapeHtml(s.position.label)}</div>
+          </div>
+          <div style="flex:1;min-width:0;">
+            <div style="display:flex;align-items:center;gap:.5rem;margin-bottom:.3rem;flex-wrap:wrap;">
+              <span style="font-size:15px;font-weight:700;color:#3a2a1a;">${escapeHtml(s.card.name)}</span>
+              <span style="font-size:10px;padding:1px 7px;border-radius:8px;background:${orientColor};color:#fff;letter-spacing:.1em;">${orient}</span>
+            </div>
+            <div style="font-size:12.5px;color:#5a4a3a;line-height:1.55;">${escapeHtml(meaning)}</div>
+            ${posBlock}
+            <div style="font-size:11px;color:#9a8a72;margin-top:.3rem;font-style:italic;">— ${escapeHtml(s.position.hint)}</div>
+          </div>
+        </div>
+      `;
+    }).join('');
+
+    return `
+      <div class="fortune-card" style="background:linear-gradient(135deg,#f5ebf8 0%,#e8d4f0 100%);border:1px solid #c8a8e0;">
+        <div style="text-align:center;font-size:11px;letter-spacing:.3em;color:#7a5a9a;margin-bottom:.4rem;">🔮 TAROT SPREAD 🔮</div>
+        <div class="fortune-head">
+          <div class="fortune-name">タロット 7ポジション・スプレッド</div>
+          <div class="fortune-result">人生7軸のメッセージ</div>
+        </div>
+        <div class="fortune-body">
+          <p style="font-size:13px;color:#5a4a6a;margin-bottom:.5rem;">古来「ケルト十字」を現代女性向けに再構成。あなたの生年月日から大アルカナ22枚を引き、7つの人生テーマに配置しました。</p>
+          <div style="background:#fdf9ff;border-radius:10px;padding:.3rem .5rem;">
+            ${rows}
+          </div>
+        </div>
+        <div class="fortune-note">※ このスプレッドは生年月日から決定的に算出されており、同じ方には常に同じカードが出ます。タロットは「あなたの今を映す鏡」。一枚一枚のメッセージを、今日の自分と照らし合わせてみて。</div>
+      </div>
+    `;
+  }
+
+  // ---------- 算命学12従星 + 四柱推命通変星カード ----------
+  function jushoTsuuhenCard(c){
+    const JUSHO = D.JUSHO || [];
+    const TSUUHEN = D.TSUUHEN || [];
+    if (!JUSHO.length || !TSUUHEN.length) return '';
+    const j = JUSHO[c.jushoIdx] || JUSHO[0];
+    const t = TSUUHEN[c.tsuuhenIdx] || TSUUHEN[0];
+
+    const axes = [
+      { key:'work',   label:'💼 仕事', color:'#8a6040' },
+      { key:'love',   label:'💗 恋愛', color:'#b06080' },
+      { key:'money',  label:'💰 お金', color:'#8a8040' },
+      { key:'people', label:'🤝 人間関係', color:'#608890' },
+      { key:'health', label:'🌿 健康', color:'#608060' },
+      { key:'luck',   label:'✨ 開運', color:'#a06090' }
+    ];
+
+    function sixAxisHtml(obj){
+      return axes.filter(a => obj[a.key]).map(a => `
+        <div style="padding:.5rem .7rem;margin:.3rem 0;background:#fffdf6;border-left:3px solid ${a.color};border-radius:0 8px 8px 0;">
+          <div style="font-size:11px;color:${a.color};font-weight:700;margin-bottom:.2rem;letter-spacing:.05em;">${a.label}</div>
+          <div style="font-size:12.5px;color:#4a3a1a;line-height:1.6;">${escapeHtml(obj[a.key])}</div>
+        </div>
+      `).join('');
+    }
+
+    return `
+      <div class="fortune-card" style="background:linear-gradient(135deg,#f7f3eb 0%,#ece0c8 100%);border:1px solid #d4b890;">
+        <div style="text-align:center;font-size:11px;letter-spacing:.3em;color:#8a6840;margin-bottom:.4rem;">◈ 算命学 ＋ 四柱推命 深掘り ◈</div>
+        <div class="fortune-head">
+          <div class="fortune-name">算命学 12従星 ／ 四柱推命 通変星</div>
+          <div class="fortune-result">エネルギー強度＆本質的役割（6軸詳細）</div>
+        </div>
+        <div class="fortune-body">
+          <div style="background:#fffaf0;border-radius:10px;padding:.9rem 1rem;margin-bottom:.8rem;border-left:3px solid #c8a060;">
+            <div style="display:flex;align-items:center;gap:.6rem;margin-bottom:.4rem;flex-wrap:wrap;">
+              <span style="font-size:12px;color:#9a7840;font-weight:600;">▼ 算命学 / 十二大従星</span>
+              <span style="font-size:15px;font-weight:700;color:#5a3a1a;">${escapeHtml(j.name)}</span>
+              <span style="font-size:11px;color:#a87850;">人生エネルギー：${escapeHtml(j.energy)}</span>
+              <span style="font-size:11px;color:#a87850;">魂年齢：${escapeHtml(j.age)}</span>
+            </div>
+            <div style="font-size:13px;color:#4a3a1a;line-height:1.6;margin-bottom:.6rem;">${escapeHtml(j.msg)}</div>
+            ${sixAxisHtml(j)}
+          </div>
+          <div style="background:#fff6ea;border-radius:10px;padding:.9rem 1rem;border-left:3px solid #a8804a;">
+            <div style="display:flex;align-items:center;gap:.6rem;margin-bottom:.4rem;flex-wrap:wrap;">
+              <span style="font-size:12px;color:#9a7040;font-weight:600;">▼ 四柱推命 / 通変星</span>
+              <span style="font-size:18px;">${t.icon}</span>
+              <span style="font-size:15px;font-weight:700;color:#5a3a1a;">${escapeHtml(t.name)}</span>
+            </div>
+            <div style="font-size:13px;color:#4a3a1a;line-height:1.6;margin-bottom:.6rem;">${escapeHtml(t.msg)}</div>
+            ${sixAxisHtml(t)}
+          </div>
+        </div>
+        <div class="fortune-note">※ 12従星は「日干 × 年支」、通変星は「日干 vs 年干」から略式算出。本格鑑定では月支・日支も含めて命式全体で読み解きます。各6軸（仕事/恋愛/お金/人間関係/健康/開運）でオーダーメイド診断します。</div>
+      </div>
+    `;
+  }
+
+  // ---------- 数秘術 5数オーダーメイドカード（v=10） ----------
+  function numerology5Card(c){
+    const NUM5 = D.NUMEROLOGY_5AXIS || {};
+    if (!Object.keys(NUM5).length) return '';
+    const rows = [
+      { key:'birth',       num: c.birthNum,       label:'誕生数',   icon:'🌱', color:'#608060', desc:'生まれた日からの「日々の生き方」のヒント' },
+      { key:'lifepath',    num: c.lifePath,       label:'運命数',   icon:'☀️', color:'#b08040', desc:'生年月日からの「人生全体のテーマ」' },
+      { key:'soul',        num: c.soulNum,        label:'魂数',     icon:'💗', color:'#b06080', desc:'名の画数からの「心の奥が求めるもの」' },
+      { key:'personality', num: c.personalityNum, label:'人格数',   icon:'✨', color:'#6080a0', desc:'人格の画数からの「周囲からの印象」' },
+      { key:'maturity',    num: c.maturityNum,    label:'成熟数',   icon:'🌳', color:'#7060a0', desc:'運命数+魂数からの「人生後半のテーマ」' }
+    ];
+    const rowHtml = rows.map(r => {
+      const entry = NUM5[r.num];
+      const text = entry && entry[r.key] ? entry[r.key] : '';
+      const numLabel = (r.num === 11 || r.num === 22 || r.num === 33) ? `${r.num}（マスター数）` : `${r.num}`;
+      return `
+        <div style="padding:.6rem .8rem;margin:.4rem 0;background:#fffdf6;border-left:3px solid ${r.color};border-radius:0 8px 8px 0;">
+          <div style="font-size:11px;color:${r.color};font-weight:700;margin-bottom:.2rem;letter-spacing:.05em;">${r.icon} ${r.label} ＝ ${numLabel}</div>
+          <div style="font-size:11px;color:#8a7050;margin-bottom:.3rem;">${escapeHtml(r.desc)}</div>
+          <div style="font-size:12.5px;color:#4a3a1a;line-height:1.6;">${escapeHtml(text)}</div>
+        </div>
+      `;
+    }).join('');
+    return `
+      <div class="fortune-card" style="background:linear-gradient(135deg,#fff8e8 0%,#ffe8c8 100%);border:1px solid #d8b888;">
+        <div style="text-align:center;font-size:11px;letter-spacing:.3em;color:#9a6830;margin-bottom:.4rem;">✦ 数秘術 5数 オーダーメイド解読 ✦</div>
+        <div class="fortune-head">
+          <div class="fortune-name">数秘術 5数の深掘り</div>
+          <div class="fortune-result">誕生数 ${c.birthNum} ／ 運命数 ${c.lifePath} ／ 魂数 ${c.soulNum} ／ 人格数 ${c.personalityNum} ／ 成熟数 ${c.maturityNum}</div>
+        </div>
+        <div class="fortune-body">
+          ${rowHtml}
+        </div>
+        <div class="fortune-note">※ ライフパス（運命数）だけでなく、誕生数（日々）／魂数（内面）／人格数（印象）／成熟数（人生後半）の 5 つを別個に算出。本格数秘術の多層構造で「同じ運命数でも違う人生」を解き明かします。</div>
+      </div>
+    `;
+  }
+
+  // ---------- 姓名判断 五格詳細カード（v=9） ----------
+  function seimeiCard(c){
+    const SEIMEI = D.SEIMEI || [];
+    if (!SEIMEI.length || !c.seimei) return '';
+    const idx = (c.seimei.sokaku != null) ? (c.seimei.sokaku % SEIMEI.length) : 0;
+    const s = SEIMEI[idx] || SEIMEI[0];
+    const det = s.detail || {};
+    const axes = [
+      { key:'love',   label:'💗 恋愛',   color:'#b06080' },
+      { key:'work',   label:'💼 仕事',   color:'#8a6040' },
+      { key:'health', label:'🌿 健康',   color:'#608060' },
+      { key:'wealth', label:'💰 財運',   color:'#8a8040' },
+      { key:'advice', label:'✨ 開運アドバイス', color:'#a06090' }
+    ];
+    const axisHtml = axes.filter(a => det[a.key]).map(a => `
+      <div style="padding:.5rem .7rem;margin:.3rem 0;background:#fffdf6;border-left:3px solid ${a.color};border-radius:0 8px 8px 0;">
+        <div style="font-size:11px;color:${a.color};font-weight:700;margin-bottom:.2rem;letter-spacing:.05em;">${a.label}</div>
+        <div style="font-size:12.5px;color:#4a3a1a;line-height:1.6;">${escapeHtml(det[a.key])}</div>
+      </div>
+    `).join('');
+    const sokakuNum = (c.seimei && c.seimei.sokaku != null) ? `総格 ${c.seimei.sokaku}画` : '';
+    return `
+      <div class="fortune-card" style="background:linear-gradient(135deg,#faf2f7 0%,#efddec 100%);border:1px solid #d8b8d0;">
+        <div style="text-align:center;font-size:11px;letter-spacing:.3em;color:#8a5080;margin-bottom:.4rem;">◈ 姓名判断 五格詳細 ◈</div>
+        <div class="fortune-head">
+          <div class="fortune-name">姓名判断 / ${escapeHtml(s.name)}</div>
+          <div class="fortune-result">${escapeHtml(sokakuNum)}</div>
+        </div>
+        <div class="fortune-body">
+          <div style="background:#fffafd;border-radius:10px;padding:.8rem 1rem;margin-bottom:.6rem;border-left:3px solid #c890b8;">
+            <div class="rich">${s.msg}</div>
+          </div>
+          ${axisHtml}
+        </div>
+        <div class="fortune-note">※ 総格を基に5軸（恋愛／仕事／健康／財運／開運アドバイス）で詳細展開。本格鑑定では天格・人格・地格・外格も含め五格全体で読み解きます。</div>
+      </div>
+    `;
+  }
+
+  // ---------- 姓名判断 五格すべての個別解釈カード（v=10） ----------
+  function seimeiGokakuCard(c){
+    const G = D.SEIMEI_GOKAKU;
+    if (!G || !c.seimei) return '';
+    const s = c.seimei;
+    const rows = [
+      { key:'tenkaku',  num: s.tenkaku,  color:'#8a6840', bg:'#fff8ee' },
+      { key:'jinkaku',  num: s.jinkaku,  color:'#a05080', bg:'#fff0f6' },
+      { key:'chikaku',  num: s.chikaku,  color:'#608060', bg:'#f4faf0' },
+      { key:'gaikaku',  num: s.gaikaku,  color:'#5070a8', bg:'#eff4fb' },
+      { key:'sokaku',   num: s.sokaku,   color:'#7050a0', bg:'#f3eef9' }
+    ];
+    const rowHtml = rows.map(r => {
+      const g = G[r.key];
+      if (!g) return '';
+      const idx = (r.num != null) ? (r.num % 9) : 0;
+      const entry = (g.entries && g.entries[idx]) || '';
+      return `
+        <div style="background:${r.bg};border-radius:10px;padding:.7rem .9rem;margin-bottom:.5rem;border-left:3px solid ${r.color};">
+          <div style="display:flex;align-items:center;gap:.5rem;margin-bottom:.3rem;flex-wrap:wrap;">
+            <span style="font-size:14px;">${g.icon}</span>
+            <span style="font-size:12px;font-weight:700;color:${r.color};">${g.label}</span>
+            <span style="font-size:11px;color:#8a7050;">${r.num} 画</span>
+          </div>
+          <div style="font-size:11.5px;color:#8a7050;margin-bottom:.3rem;line-height:1.5;">${escapeHtml(g.desc)}</div>
+          <div style="font-size:12.5px;color:#3a2a1a;line-height:1.6;">${escapeHtml(entry)}</div>
+        </div>
+      `;
+    }).join('');
+    return `
+      <div class="fortune-card" style="background:linear-gradient(135deg,#fbf6fa 0%,#f0e0ed 100%);border:1px solid #c8a8c0;">
+        <div style="text-align:center;font-size:11px;letter-spacing:.3em;color:#704060;margin-bottom:.4rem;">◈ 姓名判断 五格 すべて個別鑑定 ◈</div>
+        <div class="fortune-head">
+          <div class="fortune-name">五格 完全展開</div>
+          <div class="fortune-result">天格${s.tenkaku} ／ 人格${s.jinkaku} ／ 地格${s.chikaku} ／ 外格${s.gaikaku} ／ 総格${s.sokaku}</div>
+        </div>
+        <div class="fortune-body">
+          ${rowHtml}
+        </div>
+        <div class="fortune-note">※ 本格姓名判断では、総格だけでなく天格（祖先運）／人格（主運・性格）／地格（前半生）／外格（社会運）／総格（晩年運）の 5 つを個別に読み解きます。中でも人格が最も重要な「あなたの本質」を示します。</div>
+      </div>
+    `;
+  }
+
+  // ---------- 算命学 宿命星カード（v=10：月支配置・日支配置） ----------
+  function shukumeiseiCard(c){
+    const S = D.SHUKUMEISEI || [];
+    if (!S.length || !c.shukumeisei) return '';
+    const ges = S[c.shukumeisei.gessei % S.length] || S[0];
+    const nis = S[c.shukumeisei.nissei % S.length] || S[0];
+    const BRANCH = D.BRANCHES || [];
+    const monthBranchName = (BRANCH[c.monthBranch] && BRANCH[c.monthBranch].name) || '';
+    const dayBranchName   = (BRANCH[c.dayBranch]   && BRANCH[c.dayBranch].name)   || '';
+    const axes = [
+      { key:'nature', label:'🌱 性質',       color:'#608060' },
+      { key:'love',   label:'💗 恋愛',       color:'#b06080' },
+      { key:'work',   label:'💼 仕事',       color:'#8a6040' },
+      { key:'family', label:'🏠 家庭',       color:'#5070a8' },
+      { key:'advice', label:'✨ 開運アドバイス', color:'#a06090' }
+    ];
+    const renderStar = (star, placeLabel, placeDesc, branchName, accent) => {
+      const axisHtml = axes.filter(a => star[a.key]).map(a => `
+        <div style="padding:.5rem .7rem;margin:.3rem 0;background:#fffdf6;border-left:3px solid ${a.color};border-radius:0 8px 8px 0;">
+          <div style="font-size:11px;color:${a.color};font-weight:700;margin-bottom:.2rem;letter-spacing:.05em;">${a.label}</div>
+          <div style="font-size:12.5px;color:#4a3a1a;line-height:1.6;">${escapeHtml(star[a.key])}</div>
+        </div>
+      `).join('');
+      return `
+        <div style="background:#fdfaf0;border-radius:10px;padding:.8rem 1rem;margin-bottom:.8rem;border-left:4px solid ${accent};">
+          <div style="display:flex;align-items:center;gap:.5rem;margin-bottom:.4rem;flex-wrap:wrap;">
+            <span style="font-size:18px;">${star.icon}</span>
+            <span style="font-size:13px;font-weight:700;color:${accent};">${escapeHtml(star.name)}</span>
+            <span style="font-size:11px;color:#8a7050;background:#fff0d8;padding:.1rem .4rem;border-radius:6px;">${placeLabel}（${branchName}月支/日支）</span>
+          </div>
+          <div style="font-size:11.5px;color:#8a7050;margin-bottom:.4rem;line-height:1.5;">${placeDesc}</div>
+          ${axisHtml}
+        </div>
+      `;
+    };
+    return `
+      <div class="fortune-card" style="background:linear-gradient(135deg,#fbf6e8 0%,#f0e0c0 100%);border:1px solid #c8a868;">
+        <div style="text-align:center;font-size:11px;letter-spacing:.3em;color:#7a5830;margin-bottom:.4rem;">⛩ 算命学 宿命星（月支配置・日支配置）⛩</div>
+        <div class="fortune-head">
+          <div class="fortune-name">十大主星による命式読解</div>
+          <div class="fortune-result">月支：${escapeHtml(ges.name)} ／ 日支：${escapeHtml(nis.name)}</div>
+        </div>
+        <div class="fortune-body">
+          ${renderStar(ges, '月支配置', '社会的役割・職業傾向・人生中盤に表に出る顔', monthBranchName, '#a08040')}
+          ${renderStar(nis, '日支配置', '家庭・配偶者・私的領域・配偶者運の傾向', dayBranchName, '#806040')}
+        </div>
+        <div class="fortune-note">※ 本格算命学では命式（年支・月支・日支）に出る主星を読み解きます。月支は社会的顔（外向きの自分）、日支は家庭の顔（内向きの自分）を象徴。日干と各支の蔵干（最も強い天干）の通変関係から導出。</div>
+      </div>
+    `;
+  }
+
+  // ---------- 四柱推命 命式カード（v=10：年柱・月柱・日柱・時柱＋蔵干通変） ----------
+  function meishikiCard(c){
+    if (!c.meishiki) return '';
+    const PILLAR = D.MEISHIKI_PILLARS || {};
+    const STEMS = D.STEMS || [];
+    const BRANCH = D.BRANCHES || [];
+    const TSUUHEN = D.TSUUHEN || [];
+    const M = c.meishiki;
+    const pillars = [
+      { key:'year',  data: M.year  },
+      { key:'month', data: M.month },
+      { key:'day',   data: M.day   },
+      { key:'hour',  data: M.hour  }
+    ];
+    const stemName   = (i) => (STEMS[i]   && STEMS[i].name)   || '?';
+    const branchName = (i) => (BRANCH[i]  && BRANCH[i].name)  || '?';
+    const tsuuhenName= (i) => (i == null ? '日主' : ((TSUUHEN[i] && TSUUHEN[i].name) || '?'));
+    const pillarHtml = pillars.map(p => {
+      const info = PILLAR[p.key] || {};
+      if (!p.data){
+        return `
+          <div style="background:#f7f4ef;border-radius:10px;padding:.7rem .9rem;margin-bottom:.55rem;border-left:4px solid #c8b8a0;">
+            <div style="display:flex;align-items:center;gap:.5rem;margin-bottom:.3rem;flex-wrap:wrap;">
+              <span style="font-size:16px;">${info.icon || ''}</span>
+              <span style="font-size:13px;font-weight:700;color:${info.color || '#7a6850'};">${info.label || p.key}</span>
+              <span style="font-size:11px;color:#8a7050;">${info.period || ''}</span>
+            </div>
+            <div style="font-size:12px;color:#8a7050;line-height:1.55;">${escapeHtml(info.desc || '')}</div>
+            <div style="font-size:11.5px;color:#9a6868;margin-top:.4rem;background:#fdf4ea;padding:.35rem .55rem;border-radius:6px;display:inline-block;">※ 出生時刻が未入力のため、時柱は算出できません。</div>
+          </div>
+        `;
+      }
+      const sName = stemName(p.data.stem);
+      const bName = branchName(p.data.branch);
+      const tName = tsuuhenName(p.data.tsuuhen);
+      const zName = tsuuhenName(p.data.zouTsuuhen);
+      return `
+        <div style="background:#fdfaf3;border-radius:10px;padding:.75rem .95rem;margin-bottom:.55rem;border-left:4px solid ${info.color || '#a08040'};">
+          <div style="display:flex;align-items:center;gap:.5rem;margin-bottom:.4rem;flex-wrap:wrap;">
+            <span style="font-size:16px;">${info.icon || ''}</span>
+            <span style="font-size:13px;font-weight:700;color:${info.color || '#7a6850'};">${info.label || p.key}</span>
+            <span style="font-size:11px;color:#fff;background:${info.color || '#a08040'};padding:.1rem .5rem;border-radius:8px;">${escapeHtml(info.period || '')}</span>
+          </div>
+          <div style="display:flex;gap:.4rem;flex-wrap:wrap;margin-bottom:.4rem;">
+            <div style="background:#fff;border:1.5px solid ${info.color || '#a08040'};border-radius:8px;padding:.3rem .6rem;text-align:center;min-width:55px;">
+              <div style="font-size:9.5px;color:#9a7850;letter-spacing:.1em;">天干</div>
+              <div style="font-size:15px;font-weight:700;color:${info.color || '#a08040'};">${escapeHtml(sName)}</div>
+            </div>
+            <div style="background:#fff;border:1.5px solid ${info.color || '#a08040'};border-radius:8px;padding:.3rem .6rem;text-align:center;min-width:55px;">
+              <div style="font-size:9.5px;color:#9a7850;letter-spacing:.1em;">地支</div>
+              <div style="font-size:15px;font-weight:700;color:${info.color || '#a08040'};">${escapeHtml(bName)}</div>
+            </div>
+            <div style="background:#fffef4;border:1px dashed ${info.color || '#a08040'};border-radius:8px;padding:.3rem .55rem;flex:1;min-width:120px;">
+              <div style="font-size:10px;color:#8a7050;">通変（天干 vs 日干）</div>
+              <div style="font-size:12.5px;color:#4a3a1a;font-weight:600;">${escapeHtml(tName)}</div>
+            </div>
+            <div style="background:#fdf6ee;border:1px dashed ${info.color || '#a08040'};border-radius:8px;padding:.3rem .55rem;flex:1;min-width:120px;">
+              <div style="font-size:10px;color:#8a7050;">蔵干通変（地支の主蔵干 vs 日干）</div>
+              <div style="font-size:12.5px;color:#4a3a1a;font-weight:600;">${escapeHtml(zName)}</div>
+            </div>
+          </div>
+          <div style="font-size:11.5px;color:#8a7050;line-height:1.55;">${escapeHtml(info.desc || '')}</div>
+        </div>
+      `;
+    }).join('');
+    return `
+      <div class="fortune-card" style="background:linear-gradient(135deg,#f6f0e6 0%,#e0d0b0 100%);border:1px solid #b89868;">
+        <div style="text-align:center;font-size:11px;letter-spacing:.3em;color:#7a5830;margin-bottom:.4rem;">⛩ 四柱推命 命式 完全展開 ⛩</div>
+        <div class="fortune-head">
+          <div class="fortune-name">年柱・月柱・日柱・時柱 × 通変＋蔵干通変</div>
+          <div class="fortune-result">日干 ${escapeHtml(stemName(M.day.stem))} 基準</div>
+        </div>
+        <div class="fortune-body">
+          ${pillarHtml}
+        </div>
+        <div class="fortune-note">※ 本格四柱推命では命式の4柱すべて（年柱=祖先・幼少期、月柱=社会的活動・両親、日柱=自分自身・配偶者、時柱=晩年・子供）と、各柱の天干通変＋地支に隠れた蔵干通変を読み解きます。出生時刻が分かるとさらに精緻な鑑定になります。</div>
+      </div>
+    `;
+  }
+
+  // ---------- 夢占いカード（v=9） ----------
+  function dreamCard(c){
+    const DREAM = D.DREAM || [];
+    if (!DREAM.length) return '';
+    const idx = (c.dreamIdx != null) ? (c.dreamIdx % DREAM.length) : 0;
+    const d = DREAM[idx] || DREAM[0];
+    return `
+      <div class="fortune-card" style="background:linear-gradient(135deg,#f0eef9 0%,#dcd6ee 100%);border:1px solid #b8b0d8;">
+        <div style="text-align:center;font-size:11px;letter-spacing:.3em;color:#6a5a90;margin-bottom:.4rem;">☾ 潜在意識の夢シンボル ☾</div>
+        <div class="fortune-head">
+          <div class="fortune-name">夢占い / 潜在意識のサイン</div>
+          <div class="fortune-result">あなたの夢の象徴：${escapeHtml(d.key)}</div>
+        </div>
+        <div class="fortune-body">
+          <div style="background:#faf9ff;border-radius:10px;padding:.9rem 1rem;border-left:3px solid #8a78b8;">
+            <div class="rich">${d.msg}</div>
+          </div>
+        </div>
+        <div class="fortune-note">※ 生年月日から導いた、今あなたに最も関連が深い夢の象徴です。100種の象徴の中から、潜在意識が今あなたに見せたいメッセージを抽出。</div>
+      </div>
+    `;
+  }
+
+  // ---------- ルーン占いカード（v=9） ----------
+  function runeCard(c){
+    const RUNES = D.RUNES || [];
+    if (!RUNES.length) return '';
+    const idx = (c.runeIdx != null) ? (c.runeIdx % RUNES.length) : 0;
+    const r = RUNES[idx] || RUNES[0];
+    const axes = [
+      { key:'love',   label:'💗 恋愛',   color:'#b06080' },
+      { key:'work',   label:'💼 仕事',   color:'#8a6040' },
+      { key:'money',  label:'💰 お金',   color:'#8a8040' },
+      { key:'advice', label:'✨ アドバイス', color:'#a06090' }
+    ];
+    const axisHtml = axes.filter(a => r[a.key]).map(a => `
+      <div style="padding:.5rem .7rem;margin:.3rem 0;background:#fffdf6;border-left:3px solid ${a.color};border-radius:0 8px 8px 0;">
+        <div style="font-size:11px;color:${a.color};font-weight:700;margin-bottom:.2rem;letter-spacing:.05em;">${a.label}</div>
+        <div style="font-size:12.5px;color:#4a3a1a;line-height:1.6;">${escapeHtml(r[a.key])}</div>
+      </div>
+    `).join('');
+    return `
+      <div class="fortune-card" style="background:linear-gradient(135deg,#f3eee5 0%,#e2d5bd 100%);border:1px solid #c8b08a;">
+        <div style="text-align:center;font-size:11px;letter-spacing:.3em;color:#7a5830;margin-bottom:.4rem;">ᚠ ルーン占い (Elder Futhark) ᚠ</div>
+        <div class="fortune-head">
+          <div class="fortune-name">今のあなたを示すルーン文字</div>
+          <div class="fortune-result">${escapeHtml(r.name)}</div>
+        </div>
+        <div class="fortune-body">
+          <div style="background:#fffaf0;border-radius:10px;padding:.8rem 1rem;margin-bottom:.6rem;border-left:3px solid #b89060;">
+            <div style="font-size:13px;color:#4a3a1a;line-height:1.6;">${escapeHtml(r.meaning)}</div>
+          </div>
+          ${axisHtml}
+        </div>
+        <div class="fortune-note">※ 北欧古代の Elder Futhark 24 文字から、生年月日に基づき今のあなたに最も響く一文字を抽出。4軸（恋愛／仕事／お金／アドバイス）で詳細展開。</div>
+      </div>
+    `;
+  }
+
+  // ---------- 易経カード（v=9） ----------
+  function ichingCard(c){
+    const ICHING = D.ICHING || [];
+    if (!ICHING.length) return '';
+    const idx = (c.ichingIdx != null) ? (c.ichingIdx % ICHING.length) : 0;
+    const h = ICHING[idx] || ICHING[0];
+    const axes = [
+      { key:'love',   label:'💗 恋愛',     color:'#b06080' },
+      { key:'work',   label:'💼 仕事',     color:'#8a6040' },
+      { key:'advice', label:'✨ アドバイス', color:'#a06090' }
+    ];
+    const axisHtml = axes.filter(a => h[a.key]).map(a => `
+      <div style="padding:.5rem .7rem;margin:.3rem 0;background:#fffdf6;border-left:3px solid ${a.color};border-radius:0 8px 8px 0;">
+        <div style="font-size:11px;color:${a.color};font-weight:700;margin-bottom:.2rem;letter-spacing:.05em;">${a.label}</div>
+        <div style="font-size:12.5px;color:#4a3a1a;line-height:1.6;">${escapeHtml(h[a.key])}</div>
+      </div>
+    `).join('');
+    return `
+      <div class="fortune-card" style="background:linear-gradient(135deg,#eef3ec 0%,#d2dfcd 100%);border:1px solid #a8c098;">
+        <div style="text-align:center;font-size:11px;letter-spacing:.3em;color:#506840;margin-bottom:.4rem;">☯ 易経 六十四卦 ☯</div>
+        <div class="fortune-head">
+          <div class="fortune-name">今のあなたを照らす卦</div>
+          <div class="fortune-result">${escapeHtml(h.name)}</div>
+        </div>
+        <div class="fortune-body">
+          <div style="background:#f8fcf5;border-radius:10px;padding:.8rem 1rem;margin-bottom:.6rem;border-left:3px solid #708858;">
+            <div style="font-size:13px;color:#3a4a2a;line-height:1.6;">${escapeHtml(h.meaning)}</div>
+          </div>
+          ${axisHtml}
+        </div>
+        <div class="fortune-note">※ 中国古代の易経六十四卦から、生年月日に基づき今のあなたの状況に最も響く卦を抽出。恋愛・仕事・アドバイスの3軸で人生の方向を示します。</div>
+      </div>
+    `;
+  }
+
+  // ---------- タロット小アルカナカード（v=10） ----------
+  function minorTarotCard(c){
+    const MINOR = D.TAROT_MINOR || [];
+    if (!MINOR.length) return '';
+    const idx = (c.minorTarotIdx != null) ? (c.minorTarotIdx % MINOR.length) : 0;
+    const m = MINOR[idx] || MINOR[0];
+    const suitMap = {
+      wands:     { label:'ワンド（火）', color:'#b85040', bg:'#fdf3ec', accent:'#d87060' },
+      cups:      { label:'カップ（水）', color:'#4070a8', bg:'#eef4fb', accent:'#6090c0' },
+      swords:    { label:'ソード（風）', color:'#7058a0', bg:'#f3eef9', accent:'#9078c0' },
+      pentacles: { label:'ペンタクル（土）', color:'#608048', bg:'#f1f6ec', accent:'#80a068' }
+    };
+    const s = suitMap[m.suit] || suitMap.wands;
+    const axes = [
+      { key:'love',  label:'💗 恋愛', color:'#b06080' },
+      { key:'work',  label:'💼 仕事', color:'#8a6040' },
+      { key:'money', label:'💰 お金', color:'#8a8040' }
+    ];
+    const axisHtml = axes.filter(a => m[a.key]).map(a => `
+      <div style="padding:.5rem .7rem;margin:.3rem 0;background:#fffdf6;border-left:3px solid ${a.color};border-radius:0 8px 8px 0;">
+        <div style="font-size:11px;color:${a.color};font-weight:700;margin-bottom:.2rem;letter-spacing:.05em;">${a.label}</div>
+        <div style="font-size:12.5px;color:#4a3a1a;line-height:1.6;">${escapeHtml(m[a.key])}</div>
+      </div>
+    `).join('');
+    return `
+      <div class="fortune-card" style="background:linear-gradient(135deg,${s.bg} 0%,#ffffff 100%);border:1px solid ${s.accent};">
+        <div style="text-align:center;font-size:11px;letter-spacing:.3em;color:${s.color};margin-bottom:.4rem;">✦ タロット 小アルカナ 詳細 ✦</div>
+        <div class="fortune-head">
+          <div class="fortune-name">本日のあなたの小アルカナ</div>
+          <div class="fortune-result">${escapeHtml(m.name)}</div>
+        </div>
+        <div class="fortune-body">
+          <div style="background:#ffffff;border-radius:10px;padding:.7rem .9rem;margin-bottom:.6rem;border-left:3px solid ${s.color};">
+            <div style="font-size:11px;font-weight:700;color:${s.color};margin-bottom:.3rem;">▼ ${s.label}　／　カード意味</div>
+            <div style="font-size:13px;color:#4a3a1a;line-height:1.6;">${escapeHtml(m.meaning)}</div>
+          </div>
+          ${axisHtml}
+        </div>
+        <div class="fortune-note">※ 78 枚タロット（大アルカナ22＋小アルカナ56）の小アルカナ部分。4 スート×14 枚＝56 枚から、生年月日に基づき今のあなたに最も響く 1 枚を抽出。恋愛・仕事・お金の 3 軸で日常的な行動指針を示します。</div>
+      </div>
+    `;
+  }
+
+  // ---------- 西洋占星術 12ハウスカード（v=10：等ハウス制） ----------
+  function astroHousesCard(c){
+    const H = D.HOUSES || [];
+    const Z = D.ZODIAC || [];
+    const P = D.PLANETS || {};
+    if (!H.length) return '';
+    const p = STATE.profile || {};
+    const hasHour = p.hour != null && p.hour !== '';
+    const asc = c.ascendant != null ? c.ascendant : 0;
+    // 等ハウス制：ハウスN = mod(planetSign - ASC, 12) + 1
+    const houseOf = (signIdx) => (((signIdx - asc) % 12) + 12) % 12 + 1;
+    // 各惑星のハウス
+    const planets = [
+      { key:'sun',     name:'太陽',   icon:'☀️', sign: c.sunSign  },
+      { key:'moon',    name:'月',     icon:'🌙', sign: c.moonSign },
+      { key:'mercury', name:'水星',   icon:'☿',  sign: c.mercurySign },
+      { key:'venus',   name:'金星',   icon:'♀',  sign: c.venusSign },
+      { key:'mars',    name:'火星',   icon:'♂',  sign: c.marsSign },
+      { key:'jupiter', name:'木星',   icon:'♃',  sign: c.jupiterSign },
+      { key:'saturn',  name:'土星',   icon:'♄',  sign: c.saturnSign }
+    ];
+    // ハウス → 天体リスト
+    const planetsByHouse = {};
+    planets.forEach(pl => {
+      if (pl.sign == null) return;
+      const h = houseOf(pl.sign);
+      (planetsByHouse[h] = planetsByHouse[h] || []).push(pl);
+    });
+    // 表示するハウス（天体があるハウス＋ASC/MCを含む主要ハウス）
+    const focusHouses = Object.keys(planetsByHouse).map(Number).sort((a,b) => a - b);
+
+    const houseHtml = H.map(house => {
+      const ps = planetsByHouse[house.num] || [];
+      const isFocus = ps.length > 0;
+      const accent = isFocus ? '#7a6ab8' : '#c8c0d8';
+      const bg = isFocus ? '#f4eef9' : '#faf8fc';
+      const planetTags = ps.map(pl => {
+        const z = Z[pl.sign] || {};
+        return `<span style="display:inline-block;background:#fff;border:1.5px solid #8a6ab0;color:#5a4080;font-size:11px;padding:.15rem .5rem;border-radius:10px;margin:.1rem .15rem;font-weight:600;">${pl.icon} ${escapeHtml(pl.name)}（${z.symbol || ''}${escapeHtml(z.name || '')}）</span>`;
+      }).join('');
+      return `
+        <div style="background:${bg};border-radius:9px;padding:.55rem .75rem;margin-bottom:.4rem;border-left:3px solid ${accent};">
+          <div style="display:flex;align-items:center;gap:.4rem;flex-wrap:wrap;margin-bottom:.2rem;">
+            <span style="font-size:11px;font-weight:700;color:#5a4080;background:#e8dcf5;padding:.1rem .45rem;border-radius:6px;">H${house.num}</span>
+            <span style="font-size:12.5px;font-weight:600;color:#4a3a6a;">${escapeHtml(house.name)}</span>
+          </div>
+          <div style="font-size:11px;color:#7a6a9a;margin-bottom:.25rem;font-style:italic;">${escapeHtml(house.theme)}</div>
+          <div style="font-size:11.5px;color:#4a3a5a;line-height:1.5;margin-bottom:${planetTags ? '.35rem' : '0'};">${escapeHtml(house.desc)}</div>
+          ${planetTags ? `<div>${planetTags}</div>` : ''}
+        </div>
+      `;
+    }).join('');
+
+    // フォーカスハウスのサマリー
+    const focusSummary = focusHouses.length ? `
+      <div style="background:#fff;border-radius:8px;padding:.5rem .7rem;margin-bottom:.5rem;border-left:3px solid #8a6ab0;">
+        <div style="font-size:11px;color:#5a4080;font-weight:700;margin-bottom:.2rem;">◆ あなたの「天体が集まる人生領域」</div>
+        <div style="font-size:12.5px;color:#3a2a5a;line-height:1.6;">
+          ${focusHouses.map(h => {
+            const houseInfo = H[h - 1] || {};
+            const psHere = planetsByHouse[h] || [];
+            return `<div style="margin:.2rem 0;">・<strong>第${h}ハウス</strong>（${escapeHtml(houseInfo.theme || '')}）：${psHere.map(pl => escapeHtml(pl.name)).join('・')}</div>`;
+          }).join('')}
+        </div>
+      </div>
+    ` : '';
+
+    return `
+      <div class="fortune-card" style="background:linear-gradient(135deg,#f0eaf8 0%,#e0d4f0 100%);border:1px solid #a890d0;">
+        <div style="text-align:center;font-size:11px;letter-spacing:.3em;color:#5a4a8a;margin-bottom:.4rem;">✦ 12 HOUSES / 人生の12領域 ✦</div>
+        <div class="fortune-head">
+          <div class="fortune-name">西洋占星術 12ハウス（等ハウス制）</div>
+          <div class="fortune-result">ASC：${escapeHtml((Z[asc] && Z[asc].name) || '?')}</div>
+        </div>
+        <div class="fortune-body">
+          <p style="font-size:12.5px;color:#5a4a6a;margin-bottom:.5rem;">アセンダント（${escapeHtml((Z[asc] && Z[asc].name) || '?')}）を起点に、天空を 30°ずつ 12 等分した「人生のフィールド」。各惑星がどのハウスに入るかで、その天体の力がどの人生領域で発揮されるかが分かります。</p>
+          ${focusSummary}
+          ${houseHtml}
+        </div>
+        <div class="fortune-note">※ 等ハウス制（Equal House System）による略式算出。${hasHour ? '出生時刻が入力されているため、ASCに基づくハウス配置を表示しています。' : '出生時刻が未入力のため、ASCは生年月日からの近似値です。正確なハウス配置には出生時刻・場所（緯度経度）が必要です。'}本格鑑定ではプラシダス方式を用います。</div>
+      </div>
+    `;
+  }
+
+  // ========== v=11 本格鑑定マスター 最高峰拡張レンダラー ==========
+
+  // ---------- 西洋占星術 アスペクト ----------
+  function aspectsCard(c){
+    const A = D.ASPECTS;
+    if (!A || !c.aspects || !c.aspects.length) return '';
+    const items = c.aspects.map(a => {
+      const info = A[a.type] || {};
+      const toneColor = info.tone === 'good' ? '#7a9b6e' : '#b87a8a';
+      return `
+        <div style="background:#fff7f4;border-left:3px solid ${toneColor};padding:.6rem .8rem;border-radius:8px;margin-bottom:.5rem;">
+          <div style="font-weight:600;color:#3a2b5a;margin-bottom:.2rem;">
+            ${escapeHtml(a.label1)} ✕ ${escapeHtml(a.label2)}　<span style="font-size:11px;color:${toneColor};">${escapeHtml(info.label || '')}　${escapeHtml(info.angle || '')}</span>
+          </div>
+          <div style="font-size:12.5px;color:#5a4a6a;line-height:1.6;">${escapeHtml(info.meaning || '')}</div>
+        </div>
+      `;
+    }).join('');
+    return `
+      <div class="fortune-card">
+        <div style="text-align:center;font-size:11px;letter-spacing:.3em;color:#5a4a8a;margin-bottom:.4rem;">✦ ASPECTS / 天体間角度 ✦</div>
+        <div class="fortune-head">
+          <div class="fortune-name">あなたの命式に出ているアスペクト</div>
+          <div class="fortune-result">${c.aspects.length} 個</div>
+        </div>
+        <div class="fortune-body">
+          <p style="font-size:12.5px;color:#5a4a6a;margin-bottom:.6rem;">惑星と惑星の角度関係。あなたの内側にある才能の組み合わせ・葛藤・調和のパターン。</p>
+          ${items}
+        </div>
+        <div class="fortune-note">※ 5 種のメジャーアスペクト（合・セクスタイル・スクエア・トライン・オポジション）を検出。星座差のみによる略式判定で、本格鑑定ではオーブ（±度数）まで考慮します。</div>
+      </div>
+    `;
+  }
+
+  // ---------- 西洋占星術 トランジット詳細 ----------
+  function transitDetailCard(c){
+    if (!c.transitDetail) return '';
+    const T = c.transitDetail;
+    const Z = D.ZODIAC || [];
+    const TH = D.TRANSIT_HOUSE_THEME || {};
+    return `
+      <div class="fortune-card">
+        <div style="text-align:center;font-size:11px;letter-spacing:.3em;color:#5a4a8a;margin-bottom:.4rem;">✦ TRANSIT / 今日の天体通過 ✦</div>
+        <div class="fortune-head">
+          <div class="fortune-name">今日の太陽・月が照らすハウス</div>
+          <div class="fortune-result">本日の流れ</div>
+        </div>
+        <div class="fortune-body">
+          <div style="background:#fff7f4;border-radius:10px;padding:.7rem .9rem;margin-bottom:.5rem;">
+            <div style="font-weight:600;color:#3a2b5a;">☀️ 今日の太陽：${escapeHtml((Z[T.sunSign] && Z[T.sunSign].name) || '?')} → 第 ${T.sunHouse} ハウス</div>
+            <div style="font-size:12.5px;color:#5a4a6a;margin-top:.3rem;line-height:1.6;">${escapeHtml(TH[T.sunHouse] || '')}</div>
+          </div>
+          <div style="background:#fff7f4;border-radius:10px;padding:.7rem .9rem;">
+            <div style="font-weight:600;color:#3a2b5a;">🌙 今日の月：${escapeHtml((Z[T.moonSign] && Z[T.moonSign].name) || '?')} → 第 ${T.moonHouse} ハウス</div>
+            <div style="font-size:12.5px;color:#5a4a6a;margin-top:.3rem;line-height:1.6;">${escapeHtml(TH[T.moonHouse] || '')}</div>
+          </div>
+        </div>
+        <div class="fortune-note">※ 今日の太陽・月が、あなたの出生図のどのハウス（人生領域）を通過しているかを示します。「今日はどの領域に光が当たっているか」のリアルタイム指針。</div>
+      </div>
+    `;
+  }
+
+  // ---------- 四柱推命 大運（10年運） ----------
+  function daiunCard(c){
+    if (!c.daiun || !c.daiun.cycles) return '';
+    const STEMS = ['甲','乙','丙','丁','戊','己','庚','辛','壬','癸'];
+    const BRANCHES = ['子','丑','寅','卯','辰','巳','午','未','申','酉','戌','亥'];
+    const themes = D.DAIUN_CYCLE_THEME || {};
+    const intro = D.DAIUN_INTRO || '';
+    // 現在の年齢
+    const p = STATE.profile || {};
+    const today = new Date();
+    const age = today.getFullYear() - p.y - ((today.getMonth()+1 < p.m || (today.getMonth()+1===p.m && today.getDate()<p.d)) ? 1 : 0);
+    const rows = c.daiun.cycles.map((cy, i) => {
+      const inRange = age >= cy.ageStart && age <= cy.ageEnd;
+      const bg = inRange ? '#ffe9ce' : '#fff7f4';
+      const border = inRange ? '#d49a4e' : '#e8d7e0';
+      return `
+        <div style="background:${bg};border:1px solid ${border};border-radius:10px;padding:.6rem .8rem;margin-bottom:.4rem;">
+          <div style="font-weight:600;color:#3a2b5a;margin-bottom:.2rem;">
+            ${cy.ageStart}〜${cy.ageEnd}歳　${escapeHtml(STEMS[cy.stem])}${escapeHtml(BRANCHES[cy.branch])}
+            ${inRange ? ' <span style="background:#d49a4e;color:#fff;padding:1px 6px;border-radius:8px;font-size:10px;margin-left:.4rem;">今ココ</span>' : ''}
+          </div>
+          <div style="font-size:12.5px;color:#5a4a6a;line-height:1.6;">${escapeHtml(themes[i] || '')}</div>
+        </div>
+      `;
+    }).join('');
+    return `
+      <div class="fortune-card">
+        <div style="text-align:center;font-size:11px;letter-spacing:.3em;color:#5a4a8a;margin-bottom:.4rem;">✦ DAIUN / 10年運の流れ ✦</div>
+        <div class="fortune-head">
+          <div class="fortune-name">四柱推命 大運（${c.daiun.forward ? '順行' : '逆行'}）</div>
+          <div class="fortune-result">8 サイクル展開</div>
+        </div>
+        <div class="fortune-body">
+          <p style="font-size:12.5px;color:#5a4a6a;margin-bottom:.5rem;">${escapeHtml(intro)}</p>
+          ${rows}
+        </div>
+        <div class="fortune-note">※ 大運は 10 年ごとに巡る大きな運の波。月柱を起点に陰陽・性別で順逆が決まる、四柱推命の中核ロジックです。</div>
+      </div>
+    `;
+  }
+
+  // ---------- 四柱推命 用神・忌神 ----------
+  function youjinCard(c){
+    if (!c.youjin) return '';
+    const Y = D.YOUJIN_KIJIN;
+    if (!Y) return '';
+    const counts = c.youjin.counts;
+    const max = Math.max.apply(null, counts) || 1;
+    const bars = ['木','火','土','金','水'].map((nm, i) => {
+      const w = Math.round(counts[i] / max * 100);
+      const isYou = i === c.youjin.youjin;
+      const isKi  = i === c.youjin.kijin;
+      const color = isYou ? '#7a9b6e' : (isKi ? '#b87a8a' : '#a89bd1');
+      const tag = isYou ? '<span style="background:#7a9b6e;color:#fff;padding:1px 6px;border-radius:8px;font-size:10px;margin-left:.4rem;">用神</span>'
+                : isKi ? '<span style="background:#b87a8a;color:#fff;padding:1px 6px;border-radius:8px;font-size:10px;margin-left:.4rem;">忌神</span>' : '';
+      return `
+        <div style="margin-bottom:.4rem;">
+          <div style="font-size:12.5px;color:#3a2b5a;margin-bottom:.2rem;">${nm}　×${counts[i]}${tag}</div>
+          <div style="background:#f4ecf2;border-radius:6px;height:10px;overflow:hidden;">
+            <div style="background:${color};width:${w}%;height:100%;"></div>
+          </div>
+        </div>
+      `;
+    }).join('');
+    const youEl = Y.elements[c.youjin.youjin];
+    const kiEl  = Y.elements[c.youjin.kijin];
+    return `
+      <div class="fortune-card">
+        <div style="text-align:center;font-size:11px;letter-spacing:.3em;color:#5a4a8a;margin-bottom:.4rem;">✦ YOUJIN・KIJIN / 五行バランス ✦</div>
+        <div class="fortune-head">
+          <div class="fortune-name">あなたの五行バランス</div>
+          <div class="fortune-result">用神＝${escapeHtml(youEl.name)}／忌神＝${escapeHtml(kiEl.name)}</div>
+        </div>
+        <div class="fortune-body">
+          <p style="font-size:12.5px;color:#5a4a6a;margin-bottom:.6rem;">${escapeHtml(Y.intro)}</p>
+          ${bars}
+          <div style="background:#eaf5e6;border-left:3px solid #7a9b6e;padding:.6rem .8rem;border-radius:8px;margin-top:.6rem;">
+            <div style="font-weight:600;color:#3a2b5a;margin-bottom:.2rem;">用神＝${escapeHtml(youEl.name)}（${escapeHtml(youEl.color)}）</div>
+            <div style="font-size:12.5px;color:#5a4a6a;line-height:1.6;">${escapeHtml(youEl.advice)}</div>
+          </div>
+          <div style="background:#fbeef0;border-left:3px solid #b87a8a;padding:.6rem .8rem;border-radius:8px;margin-top:.4rem;">
+            <div style="font-weight:600;color:#3a2b5a;margin-bottom:.2rem;">忌神＝${escapeHtml(kiEl.name)}</div>
+            <div style="font-size:12.5px;color:#5a4a6a;line-height:1.6;">この五行が過剰のため、バランスを取るために <strong>${escapeHtml(youEl.name)}</strong> の要素を意識して取り入れることが鍵。</div>
+          </div>
+        </div>
+        <div class="fortune-note">※ 命式の天干＋地支から五行（木火土金水）を集計し、最も不足する五行＝用神、過剰な五行＝忌神を判定。日々の開運アクションの羅針盤です。</div>
+      </div>
+    `;
+  }
+
+  // ---------- タロット ケルト十字 10枚展開 ----------
+  function celticCrossCard(c){
+    if (!c.celticCross || !c.celticCross.length) return '';
+    const positions = D.CELTIC_CROSS_POSITIONS || [];
+    const TMAJ = D.TAROT_MAJOR || [];
+    const TM = D.TAROT_MINOR || [];
+    if (!TMAJ.length || !TM.length) return '';
+    const items = c.celticCross.map((draw, i) => {
+      const pos = positions[i] || {};
+      let cardName = '', cardMeaning = '';
+      if (draw.isMajor && TMAJ[draw.cardIdx]) {
+        const ca = TMAJ[draw.cardIdx];
+        cardName = '【大】' + (ca.name || '');
+        cardMeaning = ca.up || '';
+      } else if (!draw.isMajor && TM[draw.cardIdx]) {
+        const mc = TM[draw.cardIdx];
+        cardName = '【小】' + (mc.name || '');
+        cardMeaning = mc.meaning || '';
+      }
+      return `
+        <div style="background:#fff7f4;border:1px solid #e8d7e0;border-radius:10px;padding:.7rem .9rem;margin-bottom:.5rem;">
+          <div style="font-weight:600;color:#3a2b5a;margin-bottom:.2rem;">
+            <span style="background:#a89bd1;color:#fff;padding:2px 8px;border-radius:8px;font-size:11px;margin-right:.4rem;">${pos.num}</span>
+            ${escapeHtml(pos.label || '')}　<span style="color:#7a6a9a;font-size:12px;">→ ${escapeHtml(cardName)}</span>
+          </div>
+          <div style="font-size:12px;color:#7a6a8a;margin-bottom:.3rem;">${escapeHtml(pos.desc || '')}</div>
+          <div style="font-size:12.5px;color:#5a4a6a;line-height:1.6;">${escapeHtml(cardMeaning)}</div>
+        </div>
+      `;
+    }).join('');
+    return `
+      <div class="fortune-card">
+        <div style="text-align:center;font-size:11px;letter-spacing:.3em;color:#5a4a8a;margin-bottom:.4rem;">✦ CELTIC CROSS / 10ポジション ✦</div>
+        <div class="fortune-head">
+          <div class="fortune-name">タロット ケルト十字スプレッド</div>
+          <div class="fortune-result">78 枚から 10 枚</div>
+        </div>
+        <div class="fortune-body">
+          <p style="font-size:12.5px;color:#5a4a6a;margin-bottom:.6rem;">タロットの最も完成された展開法。10 のポジションが現在・過去・未来・潜在意識・周囲・結末を多層的に読み解きます。</p>
+          ${items}
+        </div>
+        <div class="fortune-note">※ 78 枚（大アルカナ22＋小アルカナ56）から、生年月日に基づく決定論的シャッフルで 10 枚を重複なく抽出。同じ生年月日の方には常に同じ 10 枚が現れます。</div>
+      </div>
+    `;
+  }
+
+  // ---------- 算命学 干合・支合・冲・刑 ----------
+  function kanshiRelCard(c){
+    if (!c.kanshiRel) return '';
+    const K = D.KANSHI_RELATIONS;
+    if (!K) return '';
+    const types = ['kango','shigo','chu','kei'];
+    const hasAny = types.some(t => c.kanshiRel[t] && c.kanshiRel[t].length);
+    if (!hasAny) {
+      return `
+        <div class="fortune-card">
+          <div style="text-align:center;font-size:11px;letter-spacing:.3em;color:#5a4a8a;margin-bottom:.4rem;">✦ KANSHI / 命式内 特殊関係 ✦</div>
+          <div class="fortune-head">
+            <div class="fortune-name">命式内の干合・支合・冲・刑</div>
+            <div class="fortune-result">なし</div>
+          </div>
+          <div class="fortune-body">
+            <p style="font-size:12.5px;color:#5a4a6a;">あなたの命式 4 柱の中に、干合・支合・冲・刑の関係は検出されませんでした。これは「命式内に強い偏りがなく、バランスの取れた配置」を意味します。</p>
+          </div>
+        </div>
+      `;
+    }
+    const sections = types.map(t => {
+      const list = c.kanshiRel[t];
+      if (!list || !list.length) return '';
+      const info = K[t] || {};
+      const color = info.tone === 'good' ? '#7a9b6e' : '#b87a8a';
+      const pairs = list.map(pr => `<span style="background:#fff7f4;border:1px solid ${color};color:${color};padding:2px 8px;border-radius:8px;font-size:11px;margin-right:.3rem;">${escapeHtml(pr.a)} ✕ ${escapeHtml(pr.b)}</span>`).join('');
+      return `
+        <div style="background:#fff7f4;border-left:3px solid ${color};padding:.6rem .8rem;border-radius:8px;margin-bottom:.5rem;">
+          <div style="font-weight:600;color:#3a2b5a;margin-bottom:.3rem;">${escapeHtml(info.label || t)}</div>
+          <div style="margin-bottom:.4rem;">${pairs}</div>
+          <div style="font-size:12.5px;color:#5a4a6a;line-height:1.6;">${escapeHtml(info.desc || '')}</div>
+        </div>
+      `;
+    }).join('');
+    return `
+      <div class="fortune-card">
+        <div style="text-align:center;font-size:11px;letter-spacing:.3em;color:#5a4a8a;margin-bottom:.4rem;">✦ KANSHI / 命式内 特殊関係 ✦</div>
+        <div class="fortune-head">
+          <div class="fortune-name">命式内の干合・支合・冲・刑</div>
+          <div class="fortune-result">特殊関係を検出</div>
+        </div>
+        <div class="fortune-body">
+          <p style="font-size:12.5px;color:#5a4a6a;margin-bottom:.6rem;">命式 4 柱（年柱・月柱・日柱・時柱）の間に発生する特殊関係。あなたの内側で強く結びついているテーマ、また衝突しているテーマを示します。</p>
+          ${sections}
+        </div>
+        <div class="fortune-note">※ 干合（天干同士の強い結合）・支合（地支の引き合い）・冲（地支の対立）・刑（地支の傷つけ合い）を検出。命式読解の精度を一段引き上げる本格ロジックです。</div>
+      </div>
+    `;
+  }
+
+  // ---------- 九星気学 月命星・日命星 ----------
+  function kyuusei2Card(c){
+    const MT = D.MONTHLY_STAR_THEME || {};
+    const DT = D.DAILY_STAR_THEME || {};
+    const names = ['一白水星','二黒土星','三碧木星','四緑木星','五黄土星','六白金星','七赤金星','八白土星','九紫火星'];
+    const m = c.monthlyStar || 0;
+    const d = c.dailyStar || 0;
+    return `
+      <div class="fortune-card">
+        <div style="text-align:center;font-size:11px;letter-spacing:.3em;color:#5a4a8a;margin-bottom:.4rem;">✦ KYUUSEI / 月命星・日命星 ✦</div>
+        <div class="fortune-head">
+          <div class="fortune-name">九星気学 月命星 ＆ 今日の日命星</div>
+          <div class="fortune-result">月＋日の二重リズム</div>
+        </div>
+        <div class="fortune-body">
+          <div style="background:#fff7f4;border-radius:10px;padding:.7rem .9rem;margin-bottom:.5rem;">
+            <div style="font-weight:600;color:#3a2b5a;">📅 今月のあなたの月命星：${escapeHtml(names[m])}</div>
+            <div style="font-size:12.5px;color:#5a4a6a;margin-top:.3rem;line-height:1.6;">${escapeHtml(MT[m] || '')}</div>
+          </div>
+          <div style="background:#fff7f4;border-radius:10px;padding:.7rem .9rem;">
+            <div style="font-weight:600;color:#3a2b5a;">☀️ 今日の日命星：${escapeHtml(names[d])}</div>
+            <div style="font-size:12.5px;color:#5a4a6a;margin-top:.3rem;line-height:1.6;">${escapeHtml(DT[d] || '')}</div>
+          </div>
+        </div>
+        <div class="fortune-note">※ 本命星（生まれ年）に加えて、月命星（その月の気）と日命星（その日の気）の二重リズムを掛け合わせると、九星気学の精度がぐっと上がります。</div>
+      </div>
+    `;
+  }
+
+  // ---------- 易経 変爻・之卦 ----------
+  function ichingHengaCard(c){
+    if (!c.ichingHenga) return '';
+    const names = D.ICHING_NAMES || [];
+    const lineTheme = D.ICHING_LINE_THEME || {};
+    const H = c.ichingHenga;
+    return `
+      <div class="fortune-card">
+        <div style="text-align:center;font-size:11px;letter-spacing:.3em;color:#5a4a8a;margin-bottom:.4rem;">✦ ICHING HENGA / 変爻・之卦 ✦</div>
+        <div class="fortune-head">
+          <div class="fortune-name">易経 本卦 → 之卦（しか）</div>
+          <div class="fortune-result">動いて変わる卦</div>
+        </div>
+        <div class="fortune-body">
+          <div style="background:#fff7f4;border-radius:10px;padding:.7rem .9rem;margin-bottom:.5rem;">
+            <div style="font-weight:600;color:#3a2b5a;">📜 本卦：第${H.main + 1}卦　${escapeHtml(names[H.main] || '')}</div>
+            <div style="font-size:12.5px;color:#5a4a6a;margin-top:.3rem;line-height:1.6;">現在のあなたの基本的な状況を表す卦。</div>
+          </div>
+          <div style="background:#fbeef0;border-radius:10px;padding:.7rem .9rem;margin-bottom:.5rem;">
+            <div style="font-weight:600;color:#3a2b5a;">⚡ 変爻：第 ${H.movingLine + 1} 爻が動く</div>
+            <div style="font-size:12.5px;color:#5a4a6a;margin-top:.3rem;line-height:1.6;">${escapeHtml(lineTheme[H.movingLine] || '')}</div>
+          </div>
+          <div style="background:#eaf5e6;border-radius:10px;padding:.7rem .9rem;">
+            <div style="font-weight:600;color:#3a2b5a;">🌱 之卦：第${H.henka + 1}卦　${escapeHtml(names[H.henka] || '')}</div>
+            <div style="font-size:12.5px;color:#5a4a6a;margin-top:.3rem;line-height:1.6;">本卦の状況が変化していった先に現れる卦。これがあなたの「向かう先」。</div>
+          </div>
+        </div>
+        <div class="fortune-note">※ 本格易経では、動く爻（変爻）によって本卦から之卦へと変化します。「今の状況」だけでなく「これから変化していく方向」までを読む、64×64=4096通りの精密な占法。</div>
+      </div>
+    `;
+  }
+
+  // ---------- 西洋占星術 多天体ホロスコープ ----------
+  function multiPlanetCard(c){
+    const P = D.PLANETS;
+    if (!P) return '';
+    const Z = D.ZODIAC || [];
+
+    const rows = [
+      { key:'moon',    sign: c.moonSign },
+      { key:'mercury', sign: c.mercurySign },
+      { key:'mars',    sign: c.marsSign },
+      { key:'jupiter', sign: c.jupiterSign },
+      { key:'saturn',  sign: c.saturnSign }
+    ];
+
+    const items = rows.map(r => {
+      const planet = P[r.key];
+      if (!planet) return '';
+      const signIdx = r.sign != null ? r.sign : 0;
+      const z = Z[signIdx] || { name:'', symbol:'' };
+      const entry = planet.signs[signIdx];
+      // 後方互換: 旧データは文字列、新データは {base, strength, weakness, action}
+      const isObj = entry && typeof entry === 'object';
+      const baseText = isObj ? entry.base : (entry || '');
+      const strength = isObj ? entry.strength : '';
+      const weakness = isObj ? entry.weakness : '';
+      const action = isObj ? entry.action : '';
+      const detailsHtml = isObj ? `
+            <div style="margin-top:.4rem;padding:.4rem .6rem;background:#f0e8fa;border-radius:6px;border-left:2px solid #8a6ab0;">
+              <div style="font-size:11px;font-weight:700;color:#5a4080;margin-bottom:.15rem;">◎ 強み</div>
+              <div style="font-size:12px;color:#3a2a5a;line-height:1.55;">${escapeHtml(strength)}</div>
+            </div>
+            <div style="margin-top:.3rem;padding:.4rem .6rem;background:#fcefef;border-radius:6px;border-left:2px solid #b07070;">
+              <div style="font-size:11px;font-weight:700;color:#804040;margin-bottom:.15rem;">△ 弱み</div>
+              <div style="font-size:12px;color:#5a3a3a;line-height:1.55;">${escapeHtml(weakness)}</div>
+            </div>
+            <div style="margin-top:.3rem;padding:.4rem .6rem;background:#eef6f0;border-radius:6px;border-left:2px solid #6a9070;">
+              <div style="font-size:11px;font-weight:700;color:#406040;margin-bottom:.15rem;">▶ 今日からの具体アクション</div>
+              <div style="font-size:12px;color:#2a4a2a;line-height:1.55;">${escapeHtml(action)}</div>
+            </div>
+      ` : '';
+      return `
+        <div style="display:flex;gap:.8rem;padding:.9rem .7rem;border-bottom:1px dashed #d8c8e0;align-items:flex-start;">
+          <div style="flex:0 0 80px;text-align:center;">
+            <div style="font-size:26px;line-height:1;">${planet.icon}</div>
+            <div style="font-size:11px;color:#7a6a9a;margin-top:.3rem;font-weight:600;">${escapeHtml(planet.name)}</div>
+          </div>
+          <div style="flex:1;min-width:0;">
+            <div style="display:flex;align-items:center;gap:.5rem;margin-bottom:.3rem;flex-wrap:wrap;">
+              <span style="font-size:14px;font-weight:700;color:#3a2a5a;">${z.symbol || ''} ${escapeHtml(z.name)}</span>
+            </div>
+            <div style="font-size:11.5px;color:#9a7ab0;margin-bottom:.3rem;font-style:italic;">${escapeHtml(planet.theme)}</div>
+            <div style="font-size:13px;color:#4a3a5a;line-height:1.55;">${escapeHtml(baseText)}</div>
+            ${detailsHtml}
+          </div>
+        </div>
+      `;
+    }).join('');
+
+    return `
+      <div class="fortune-card" style="background:linear-gradient(135deg,#f0eaf8 0%,#dccff0 100%);border:1px solid #b8a0d8;">
+        <div style="text-align:center;font-size:11px;letter-spacing:.3em;color:#5a4a8a;margin-bottom:.4rem;">✦ MULTI-PLANET HOROSCOPE ✦</div>
+        <div class="fortune-head">
+          <div class="fortune-name">西洋占星術 多天体ホロスコープ</div>
+          <div class="fortune-result">月・水星・火星・木星・土星</div>
+        </div>
+        <div class="fortune-body">
+          <p style="font-size:13px;color:#5a4a6a;margin-bottom:.5rem;">太陽星座だけでは見えない、あなたの「もうひとつの本当の姿」。5天体それぞれが、あなたの違う側面を語りかけます。</p>
+          <div style="background:#faf7ff;border-radius:10px;padding:.3rem .5rem;">
+            ${items}
+          </div>
+        </div>
+        <div class="fortune-note">※ 月・火星・木星・土星は出生日から略式計算。水星・金星は太陽から±28°/±48°以内、月は約2.5日で1サイン進む天文事実に基づく近似値を採用しています。本格鑑定には出生時刻と場所が必要です。</div>
+      </div>
     `;
   }
 
@@ -1017,6 +2293,16 @@
         </div>
         <div class="fortune-note">※ このロードマップは、あなたが既に持っているものを示しているだけです。新しく何かを得る必要はありません。本来のあなたに戻るだけ。</div>
       </div>
+
+      ${tarotSpreadCard(c)}
+
+      ${minorTarotCard(c)}
+
+      ${celticCrossCard(c)}
+
+      ${ichingCard(c)}
+
+      ${ichingHengaCard(c)}
     `;
   }
 
@@ -1194,30 +2480,26 @@
     triggerAISynthesis(calc);
   }
 
-  // ---------- AI シンセシス（バックグラウンド実行 + プレースホルダ差し替え） ----------
-  let _aiInflight = false;
-  async function triggerAISynthesis(calc){
-    if (!window.ClaudeAPI || !window.ClaudeAPI.generateLifeSynthesis) return;
-    if (_aiInflight) return;
+  // ---------- 美瑛 直筆診断（ローカル生成・ゼロ課金版） ----------
+  // 以前は Claude API を呼んでいたが、LocalSynthesis に切り替えて
+  // すべて端末内で生成。外部通信なし・API課金ゼロ。
+  function triggerAISynthesis(calc){
     const placeholder = document.getElementById('report-ai-placeholder');
     if (!placeholder) return;
-    _aiInflight = true;
     try {
-      const text = await window.ClaudeAPI.generateLifeSynthesis(STATE.profile, calc);
-      const fresh = document.getElementById('report-ai-placeholder');
-      if (!fresh) return; // レポート再生成で要素が消えた場合
-      if (text) {
-        const safe = sanitizeAiHtml(text);
-        fresh.outerHTML = `<div class="block" style="background:linear-gradient(135deg,#fff8f3 0%,#ffeee1 100%);border:1px solid #e6c8a8;padding:1.4rem;">${safe}<div style="margin-top:1.2rem;font-size:11px;color:#b08a6a;border-top:1px dashed #e6c8a8;padding-top:.6rem;">— AI占い師「美瑛」（Claude Opus 4.5）による、あなたの占術結果と悩みを統合した直筆診断 —</div></div>`;
+      let html = '';
+      if (window.LocalSynthesis && window.LocalSynthesis.generate){
+        html = window.LocalSynthesis.generate(STATE.profile, calc);
+      }
+      if (html){
+        placeholder.outerHTML = `<div class="block" style="background:linear-gradient(135deg,#fff8f3 0%,#ffeee1 100%);border:1px solid #e6c8a8;padding:1.4rem;">${html}<div style="margin-top:1.2rem;font-size:11px;color:#b08a6a;border-top:1px dashed #e6c8a8;padding-top:.6rem;">— AI占い師「美瑛」による、あなたの占術結果と悩みを統合した直筆診断 —</div></div>`;
       } else {
-        fresh.outerHTML = `<div class="block" style="background:#faf6f0;border:1px solid #ddd;padding:1.2rem;text-align:center;color:#888;font-size:13px;">AI診断は、現在ご利用いただけません（通信またはAPI応答エラー）。他の診断結果はそのまま有効です。</div>`;
+        placeholder.outerHTML = `<div class="block" style="background:#faf6f0;border:1px solid #ddd;padding:1.2rem;text-align:center;color:#888;font-size:13px;">直筆診断を生成できませんでした。他の診断結果はそのまま有効です。</div>`;
       }
     } catch(err) {
-      console.error('[AI synthesis]', err);
+      console.error('[LocalSynthesis]', err);
       const fresh = document.getElementById('report-ai-placeholder');
-      if (fresh) fresh.outerHTML = `<div class="block" style="background:#faf6f0;border:1px solid #ddd;padding:1.2rem;text-align:center;color:#888;font-size:13px;">AI診断は、現在ご利用いただけません。他の診断結果はそのまま有効です。</div>`;
-    } finally {
-      _aiInflight = false;
+      if (fresh) fresh.outerHTML = `<div class="block" style="background:#faf6f0;border:1px solid #ddd;padding:1.2rem;text-align:center;color:#888;font-size:13px;">直筆診断の生成中にエラーが発生しました。他の診断結果はそのまま有効です。</div>`;
     }
   }
 
