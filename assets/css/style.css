@@ -2138,3 +2138,43 @@ body.gate-locked{ overflow: hidden; }
 }
 .block-final h3{ color:#8b6914; }
 
+
+/* ============================================================
+   印刷用スタイル（「PDF/印刷で保存」ボタン → window.print() 用）
+   - ヘッダー・ナビ・操作ボタンは非表示
+   - レポート本文（#screen-report 内の #report-content）だけが出力される
+   - section.screen の active 制御に依存せず、screen-report は強制表示
+   ============================================================ */
+@media print {
+  /* 印刷時に余白・色味を安定させる */
+  @page { size: A4; margin: 12mm 10mm; }
+  html, body { background: #fff !important; color: #2a1f3a !important; }
+
+  /* 操作系は全部消す */
+  .site-header,
+  .site-footer,
+  .site-nav,
+  .gate-overlay,
+  .loading,
+  .btn-back,
+  .form-actions,
+  .report-actions,
+  .pdf-note,
+  #btn-download-pdf {
+    display: none !important;
+  }
+
+  /* 画面切替の active 制御を無効化し、レポートだけ表示 */
+  .screen { display: none !important; }
+  #screen-report { display: block !important; }
+
+  /* 印刷時は余白とシャドウを軽くしてページ詰まりを減らす */
+  .container { max-width: 100% !important; padding: 0 !important; box-shadow: none !important; }
+  .fortune-card, .report-section, .report-cover {
+    box-shadow: none !important;
+    page-break-inside: avoid;
+    break-inside: avoid;
+  }
+  .report-section { page-break-before: auto; }
+  .report-cover { page-break-after: always; }
+}
