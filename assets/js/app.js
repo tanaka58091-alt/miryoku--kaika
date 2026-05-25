@@ -137,6 +137,32 @@
     }
   });
 
+  // ---------- 開発用テストプリセット（URLパラメータ ?preset=NAME で自動入力） ----------
+  // 例：?preset=satoh → 佐藤花子1971/5/4／?preset=tanaka → 田中美咲1980/3/15
+  (function applyTestPreset(){
+    try {
+      const params = new URLSearchParams(window.location.search);
+      const preset = params.get('preset');
+      if (!preset) return;
+      const presets = {
+        satoh:  { sei:'佐藤', mei:'花子',  y:1971, m:5,  d:4,  h:10, pref:'東京都', sex:'female' },
+        tanaka: { sei:'田中', mei:'美咲',  y:1980, m:3,  d:15, h:14, pref:'大阪府', sex:'female' },
+        yamada: { sei:'山田', mei:'太郎',  y:1971, m:8,  d:6,  h:9,  pref:'愛知県', sex:'male'   },
+        suzuki: { sei:'鈴木', mei:'恵子',  y:1965, m:11, d:22, h:7,  pref:'神奈川県', sex:'female' },
+        kato:   { sei:'加藤', mei:'真理子', y:1958, m:7,  d:30, h:18, pref:'福岡県', sex:'female' }
+      };
+      const p = presets[preset];
+      if (!p) return;
+      const set = (id, val) => { const el = document.getElementById(id); if (el && val != null) el.value = val; };
+      set('in-sei', p.sei); set('in-mei', p.mei);
+      set('in-year', p.y);  set('in-month', p.m);  set('in-day', p.d);
+      set('in-hour', p.h);  set('in-prefecture', p.pref);
+      const sexRadio = document.querySelector(`input[name="sex"][value="${p.sex}"]`);
+      if (sexRadio) sexRadio.checked = true;
+      console.log('[preset]', preset, 'applied');
+    } catch(e){ /* silent */ }
+  })();
+
   // ---------- 入力フォーム ----------
   $('#form-profile').addEventListener('submit', (e) => {
     e.preventDefault();
@@ -146,6 +172,8 @@
     const m = parseInt($('#in-month').value, 10);
     const d = parseInt($('#in-day').value, 10);
     const hour = $('#in-hour').value === '' ? null : parseInt($('#in-hour').value, 10);
+    const prefEl = $('#in-prefecture');
+    const prefecture = prefEl ? prefEl.value : '';
     const sexEl = document.querySelector('input[name="sex"]:checked');
     const sex = sexEl ? sexEl.value : 'female';
 
@@ -161,7 +189,7 @@
     const worryText = worryTextEl ? worryTextEl.value.trim() : '';
 
     STATE.profile = {
-      sei, mei, y, m, d, hour, sex,
+      sei, mei, y, m, d, hour, sex, prefecture,
       facePhoto: STATE.tempPhotos.face || null,
       palmPhoto: STATE.tempPhotos.palm || null,
       worryCat,
@@ -218,7 +246,12 @@
   // ---------- 共通: 各占いの計算結果オブジェクトを生成 ----------
   function computeAll() {
     if (!STATE.profile) return null;
-    const { sei, mei, y, m, d, hour } = STATE.profile;
+    const { sei, mei, y, m, d, hour, prefecture } = STATE.profile;
+    let ascLat, ascLon;
+    if (prefecture && F.PREFECTURE_COORDS && F.PREFECTURE_COORDS[prefecture]) {
+      ascLat = F.PREFECTURE_COORDS[prefecture][0];
+      ascLon = F.PREFECTURE_COORDS[prefecture][1];
+    }
 
     const sunSign  = F.calcSunSign(m, d);
     const lifePath = F.calcLifePath(y, m, d);
@@ -229,13 +262,13 @@
     const animal   = F.calcAnimal(y, m, d);
     const sixStar  = F.calcSixStar(y, m, d);
     const nineStar = F.calcNineStar(y, m, d);
-    const venusSign= F.calcVenusSign(y, m, d);
-    const ascendant= F.calcAscendant(y, m, d, hour);
-    const moonSign    = F.calcMoonSign    ? F.calcMoonSign(y, m, d)    : sunSign;
-    const mercurySign = F.calcMercurySign ? F.calcMercurySign(y, m, d) : sunSign;
-    const marsSign    = F.calcMarsSign    ? F.calcMarsSign(y, m, d)    : sunSign;
-    const jupiterSign = F.calcJupiterSign ? F.calcJupiterSign(y, m, d) : sunSign;
-    const saturnSign  = F.calcSaturnSign  ? F.calcSaturnSign(y, m, d)  : sunSign;
+    const venusSign= F.calcVenusSign(y, m, d, hour);
+    const ascendant= F.calcAscendant(y, m, d, hour, ascLat, ascLon);
+    const moonSign    = F.calcMoonSign    ? F.calcMoonSign(y, m, d, hour)    : sunSign;
+    const mercurySign = F.calcMercurySign ? F.calcMercurySign(y, m, d, hour) : sunSign;
+    const marsSign    = F.calcMarsSign    ? F.calcMarsSign(y, m, d, hour)    : sunSign;
+    const jupiterSign = F.calcJupiterSign ? F.calcJupiterSign(y, m, d, hour) : sunSign;
+    const saturnSign  = F.calcSaturnSign  ? F.calcSaturnSign(y, m, d, hour)  : sunSign;
     const seimei   = F.calcSeimei(sei, mei);
     const seimeiCat= seimei.sokaku ? F.seimeiCategory(seimei.sokaku) : null;
     const palmType = F.calcPalmType(y, m, d);
@@ -260,7 +293,7 @@
     const personalityNum = F.calcPersonalityNum ? F.calcPersonalityNum(seimei)       : 0;
     const maturityNum    = F.calcMaturityNum    ? F.calcMaturityNum(lifePath, soulNum) : 0;
     // v=10 新規：算命学 宿命星（月支配置・日支配置）
-    const monthBranch  = F.calcMonthBranch  ? F.calcMonthBranch(m, d)                     : 0;
+    const monthBranch  = F.calcMonthBranch  ? F.calcMonthBranch(m, d, y)                  : 0;
     const shukumeisei  = F.calcShukumeisei  ? F.calcShukumeisei(dayStem, monthBranch, dayBranch) : { gessei:0, nissei:0 };
     // v=10 新規：四柱推命 命式全体（年月日時の4柱）
     const meishiki     = F.calcMeishiki     ? F.calcMeishiki(y, m, d, hour) : null;
@@ -553,11 +586,21 @@
     if (t.getMonth() < bm || (t.getMonth() === bm && t.getDate() < bd)) a--;
     return a;
   }
-  // 心の歪み index 決定: lifePath (11/22/33 を含む) を 0〜8 に
+  // 心の歪み index 決定: lifePath × エレメント × dayStem偶奇 で 0〜26 に拡張
+  // 既存9タイプ(0-8) + 新18タイプ(9-26) = 27タイプ
   function hizumiIndexOf(c){
     const lp = c.lifePath;
     const base = (lp === 11) ? 2 : (lp === 22) ? 4 : (lp === 33) ? 6 : lp;
-    return ((base - 1) % 9 + 9) % 9;
+    const baseIdx = ((base - 1) % 9 + 9) % 9; // 0〜8
+    if (!D.HIZUMI || D.HIZUMI.length < 27) return baseIdx; // 後方互換
+    // 副軸：エレメントとdayStem偶奇を組み合わせて0〜2のサブ層を決める
+    const elem = (D.ZODIAC[c.sunSign] && D.ZODIAC[c.sunSign].element) || '土';
+    const elemKey = {'火':0,'土':1,'風':2,'水':0}[elem] || 0;
+    const stemOdd = (c.dayStem != null) ? (c.dayStem % 2) : 0; // 0=陽 1=陰
+    const sub = ((baseIdx + elemKey + stemOdd) % 3 + 3) % 3; // 0,1,2
+    // sub=0 → 基底9タイプ、sub=1 → 9-17の新タイプ、sub=2 → 18-26の新タイプ
+    if (sub === 0) return baseIdx;
+    return 9 + (sub - 1) * 9 + baseIdx;
   }
   // 人生ステージ index 決定: 年齢 + 九星 + 西暦下1桁の組合せ → 0〜6
   function stageIndexOf(c){
@@ -683,22 +726,52 @@
     const elem = elementOf(c);
     const ess = D.ESSENCE[elem];
 
+    // ★ 個別化レイヤー：4エレメント基本テンプレに、ユーザー固有の占術結果を織り込む
+    const stemName = (stem && stem.name) || '';
+    const stemElem = (stem && stem.element) || '';
+    const animalName = (animal && animal.name) || '';
+    const sanmeiName = (sanmei && sanmei.name) || '';
+    const lpTitle = (lp && lp.title) || '';
+    const sixName = (six && six.name) || '';
+    const sixPol = c.sixStar && c.sixStar.polarity === 'plus' ? '＋（陽性）' : '−（陰性）';
+    const animal60Name = (c.animal && c.animal.char && c.animal.char.name) || '';
+    const animal60Group = (c.animal && c.animal.group && c.animal.group.name) || animalName;
+    const venusName = (D.ZODIAC[c.venusSign] || {}).name || '';
+    const nineIdx = ((c.nineStar || 1) - 1 + 9) % 9;
+    const nineNames = ['一白水星','二黒土星','三碧木星','四緑木星','五黄土星','六白金星','七赤金星','八白土星','九紫火星'];
+    const nineName = nineNames[nineIdx] || '';
+
+    // 個別ブレンド：固定テンプレ + 個人データ
+    const personalBlend = `あなたの基本エレメントは「${elem}」で、これは「${escapeHtml(ess.keyword)}」という核を持つ人。`
+      + `そこに日柱「${escapeHtml(stemName)}（${escapeHtml(stemElem)}）」の質が重なり、`
+      + `表に出ると「${escapeHtml(animal60Name || animal60Group)}」として動く。`
+      + `数秘${c.lifePath}「${escapeHtml(lpTitle)}」が人生の道筋を示し、`
+      + `${escapeHtml(sixName)}${sixPol}・${escapeHtml(nineName)}・金星${escapeHtml(venusName)}が、その動き方を細かく調整しています。`
+      + `この6軸の組み合わせは、同じ${elem}エレメントの人の中でも、あなただけの配合です。`;
+
+    // ユーザー固有の「強み軸」「ケア軸」を導出
+    const strengthAxis = `${escapeHtml(stemName)}×${escapeHtml(animal60Group)}の組み合わせは、${stemElem === elem ? '本来の' + elem + 'の質を二重に強化する' : stemElem + 'と' + elem + 'をブリッジする'}稀有な配置。`;
+    const careAxis = `${escapeHtml(sanmeiName)}が主星のあなたは、${elem}の弱点である「${escapeHtml(ess.breakPoint).split('」と')[0]}」が出やすい場面で、特に意識的にペースを守ってください。`;
+
     const essenceCard = ess ? `
       <div class="fortune-card essence-deep-card">
         <div class="essence-deco">◆ ESSENCE ◆</div>
         <div class="fortune-head">
-          <div class="fortune-name">本質の私を知る ／ ${elem}の人</div>
+          <div class="fortune-name">本質の私を知る ／ ${elem}の人 × ${escapeHtml(stemName)} × ${escapeHtml(animal60Group)}</div>
           <div class="fortune-result">キーワード：${escapeHtml(ess.keyword)}</div>
         </div>
         <div class="fortune-body">
           <p class="essence-lead">${escapeHtml(ess.essence)}</p>
 
           <div class="essence-grid">
+            <div class="essence-row"><div class="essence-label">あなたの占術ブレンド</div><div class="essence-val">${personalBlend}</div></div>
+            <div class="essence-row"><div class="essence-label">あなたの強み軸</div><div class="essence-val">${strengthAxis}</div></div>
             <div class="essence-row"><div class="essence-label">隠れた才能</div><div class="essence-val">${escapeHtml(ess.hiddenTalent)}</div></div>
             <div class="essence-row"><div class="essence-label">エネルギータイプ</div><div class="essence-val">${escapeHtml(ess.energyType)}</div></div>
             <div class="essence-row"><div class="essence-label">感情パターン</div><div class="essence-val">${escapeHtml(ess.emotionPattern)}</div></div>
             <div class="essence-row"><div class="essence-label">愛され方</div><div class="essence-val">${escapeHtml(ess.lovedHow)}</div></div>
             <div class="essence-row essence-row-warn"><div class="essence-label">無理すると壊れる部分</div><div class="essence-val">${escapeHtml(ess.breakPoint)}</div></div>
+            <div class="essence-row essence-row-warn"><div class="essence-label">あなた特有のケア軸</div><div class="essence-val">${careAxis}</div></div>
             <div class="essence-row essence-row-young"><div class="essence-label">若返る思考</div><div class="essence-val">${escapeHtml(ess.youthThought)}</div></div>
             <div class="essence-row essence-row-age"><div class="essence-label">老けやすい思考</div><div class="essence-val">${escapeHtml(ess.ageThought)}</div></div>
           </div>
@@ -866,6 +939,57 @@
     `;
   }
 
+  // ---------- カテゴリ3 補助: あなただけの「歪みの根拠」 ----------
+  // 同じ歪みタイプの人でも、その歪みを抱える「占術的な根拠」は人によって違う
+  // sunSign element × nineStar × animal group × tsuuhen を組み合わせて
+  // 「あなたの場合はこういう理由でこの歪みが出やすい」という個別文を生成
+  function buildHizumiPersonalHook(c, h){
+    const z = D.ZODIAC[c.sunSign] || {};
+    const elem = z.element || '土';
+    const elemLine = {
+      '火':'燃え上がる火のエレメントを持つあなたは、感情を抑え込むほど内側で焼け焦げてしまう質',
+      '土':'蓄える土のエレメントを持つあなたは、不要な感情や役割もため込んでしまいやすい質',
+      '風':'流れる風のエレメントを持つあなたは、考えが止まらず疲れ果ててしまう質',
+      '水':'感じ取る水のエレメントを持つあなたは、他人の感情まで吸収しすぎてしまう質'
+    }[elem] || '';
+
+    const nineStarNames = ['','一白水星','二黒土星','三碧木星','四緑木星','五黄土星','六白金星','七赤金星','八白土星','九紫火星'];
+    const nineLine = {
+      1:'一白水星の柔らかさが、断れない人の良さに変質する',
+      2:'二黒土星の支える力が、自分を後回しにする癖につながる',
+      3:'三碧木星の伸びやかさが、周囲の重しで縮こまってしまう',
+      4:'四緑木星の調和力が、空気を読みすぎる疲弊を生む',
+      5:'五黄土星の核の強さが、本人を内側から削る方向に働く',
+      6:'六白金星の責任感が、頑張りすぎの過剰モードを引き起こす',
+      7:'七赤金星の華やかさの裏で、本音を隠す癖がついている',
+      8:'八白土星の頑固な誠実さが、休むことを禁じてしまう',
+      9:'九紫火星の感受性が、人より早く燃え尽きてしまう'
+    }[c.nineStar] || '';
+
+    const animalGroup = c.animal && c.animal.group && c.animal.group.name;
+    const animalLine = animalGroup ? `動物占いの${animalGroup}グループの性質も、この傾向を後押ししています` : '';
+
+    const tsuuhen = c.tsuuhenIdx != null && D.TSUUHEN ? D.TSUUHEN[c.tsuuhenIdx] : null;
+    const tsuuhenLine = (tsuuhen && tsuuhen.name) ? `通変星「${tsuuhen.name}」の影響で、この歪みは特に「${({
+      '比肩':'自分を保とうとする緊張', '劫財':'人と競う疲弊', '食神':'与えすぎる自己消費',
+      '傷官':'完璧を求める苦しさ', '偏財':'人との距離の取り方', '正財':'責任を抱え込む癖',
+      '偏官':'戦い続ける緊張', '正官':'役割を背負う重さ', '偏印':'自分を疑う癖', '印綬':'守りすぎる窮屈さ'
+    }[tsuuhen.name] || '日常の小さな選択')}」として現れやすい` : '';
+
+    const p = STATE.profile || {};
+    const nameDisp = (p.sei || p.mei) ? `${escapeHtml(p.sei)}${escapeHtml(p.mei)}さま` : 'あなた';
+
+    const parts = [elemLine, nineLine, animalLine, tsuuhenLine].filter(Boolean);
+    if (!parts.length) return '';
+
+    return `
+      <div class="hizumi-personal-hook" style="background:linear-gradient(135deg,#fff7ee 0%,#fdf0e0 100%);border-left:3px solid #c89060;padding:1rem 1.2rem;margin:.8rem 0;border-radius:0 8px 8px 0;">
+        <div style="font-size:11px;letter-spacing:.3em;color:#9a6840;font-weight:700;margin-bottom:.5rem;">◆ あなたの命式から見る、この歪みの根拠</div>
+        <p style="line-height:1.85;margin:0;">${nameDisp}、あなたが「${escapeHtml(h.name)}」を抱えやすい理由は、占術的にもはっきりと見えています。${escapeHtml(parts.join('。'))}。${tsuuhenLine ? '' : 'だから、これは性格の問題ではなく、生まれ持った設計の必然です。'}</p>
+      </div>
+    `;
+  }
+
   // ---------- カテゴリ3: 心の歪み診断（後天性）★最重要 ----------
   function renderCat3(c) {
     const idx = hizumiIndexOf(c);
@@ -895,6 +1019,8 @@
           <h4>この歪みのパターン</h4>
           <div class="rich"><p>${escapeHtml(h.pattern)}</p></div>
 
+          ${buildHizumiPersonalHook(c, h)}
+
           <div class="hizumi-bridge">
             <div class="hizumi-bridge-label">▼ なぜ身体に出るのか</div>
             <p>${escapeHtml(h.whyBody)}</p>
@@ -917,6 +1043,67 @@
       </div>
 
       ${dreamCard(c)}
+    `;
+  }
+
+  // ---------- カテゴリ4 補助: あなただけの「今このステージにいる理由」 ----------
+  // 10年フェーズ × 日干 × 九星年運 を組み合わせ、現在地の必然性を語る
+  function buildStagePersonalHook(c, s){
+    const a = ageOf();
+    if (a < 0) return '';
+    // 10年単位のフェーズ
+    const decadeIdx = Math.max(0, Math.min(8, Math.floor(a / 10)));
+    const decadeTheme = [
+      { label:'幼少期', theme:'魂の原型がまだ生のまま残る、すべてが感覚で動く時期' },
+      { label:'10代',  theme:'内側の種が外界と初めてぶつかり、自分の輪郭を描き始める時期' },
+      { label:'20代',  theme:'走りながら自分を試し、何度も型を破って正解を探す時期' },
+      { label:'30代',  theme:'役割と現実が一気に重なり、本当の自分を一度しまい込む時期' },
+      { label:'40代',  theme:'外側の役割が完成する一方で、内側から「これでいいのか」が立ち上がる転換期' },
+      { label:'50代',  theme:'長年の鎧を脱ぎ、本当の自分の声をもう一度聴き直すための再構築期' },
+      { label:'60代',  theme:'すべての経験が統合され、自分の生き方が人を照らす光に変わる時期' },
+      { label:'70代',  theme:'役割から完全に解放され、ただ存在することそのものが価値になる時期' },
+      { label:'80代以降', theme:'魂の収穫期。生きてきたこと自体が、次の世代への贈り物になる時期' }
+    ][decadeIdx];
+
+    // 日干（10種）が今のフェーズに与える色
+    const stemFlavor = {
+      '甲':'樹木のように、まっすぐ伸びることを諦めない芯の強さ',
+      '乙':'蔓草のように、しなやかに巻きついて生き延びる柔軟さ',
+      '丙':'太陽のように、惜しみなく周囲を照らす熱量',
+      '丁':'灯火のように、必要な人だけを静かに照らす繊細さ',
+      '戊':'山岳のように、動かずに在ることで人を支える安定感',
+      '己':'田畑のように、養い育てることで豊かさを生む包容力',
+      '庚':'刃物のように、不要なものを切り落とす決断力',
+      '辛':'宝石のように、磨かれた一点で人を惹きつける美意識',
+      '壬':'大海のように、すべてを受け入れて流す広さ',
+      '癸':'雨露のように、静かに浸透して全体を潤す繊細さ'
+    };
+    const stemRaw = (c.dayStem != null && D.STEMS && D.STEMS[c.dayStem]) ? D.STEMS[c.dayStem].name : '';
+    const stem = stemRaw.replace(/[（(].*$/, '').trim();
+    const stemLine = stem && stemFlavor[stem] ? `日干「${stem}」のあなたは、${stemFlavor[stem]}を持って、この時期を生きています` : '';
+
+    // 今年の九星年運フレーバー（本命星 × 西暦の単純周期で「今年のテーマ」を出す）
+    const nineYearTheme = [
+      '', '種をまく年', '育む年', '芽吹きの年', '広がりの年', '中心に立つ年',
+      '整える年', '実りの年', '変容の年', '完成と手放しの年'
+    ];
+    const yearPhase = ((new Date().getFullYear() + (c.nineStar || 1)) % 9) + 1;
+    const yearLine = (c.nineStar ? `九星の流れで言えば、今年のあなたは「${nineYearTheme[yearPhase] || ''}」のリズムの中にいます` : '');
+
+    const p = STATE.profile || {};
+    const nameDisp = (p.sei || p.mei) ? `${escapeHtml(p.sei)}${escapeHtml(p.mei)}さま` : 'あなた';
+
+    const parts = [
+      `${a}歳の今、あなたは${decadeTheme.label}という「${decadeTheme.theme}」の只中にいます`,
+      stemLine,
+      yearLine
+    ].filter(Boolean);
+
+    return `
+      <div class="stage-personal-hook" style="background:linear-gradient(135deg,#f0f4ff 0%,#e6ecfa 100%);border-left:3px solid #6a82c8;padding:1rem 1.2rem;margin:.8rem 0;border-radius:0 8px 8px 0;">
+        <div style="font-size:11px;letter-spacing:.3em;color:#4a5fa0;font-weight:700;margin-bottom:.5rem;">◈ あなたが今このステージにいる理由</div>
+        <p style="line-height:1.85;margin:0;">${nameDisp}、「${escapeHtml(s.name)}」というステージが今のあなたに現れているのには、占術的な必然があります。${escapeHtml(parts.join('。'))}。だからこそ、今この瞬間に「このステージ」がやってきています。早すぎず、遅すぎず、ちょうど今です。</p>
+      </div>
     `;
   }
 
@@ -946,6 +1133,8 @@
         <div class="fortune-body">
           <p class="stage-pos">${escapeHtml(s.stagePos)}</p>
 
+          ${buildStagePersonalHook(c, s)}
+
           <h4>今、内側で何が起きているか</h4>
           <div class="rich"><p>${escapeHtml(s.whatIsHappening)}</p></div>
 
@@ -968,6 +1157,76 @@
       </div>
 
       ${runeCard(c)}
+    `;
+  }
+
+  // ---------- カテゴリ5 補助: あなただけの「なぜこの美の世界観が最も輝かせるのか」 ----------
+  // 金星エレメント × 太陽エレメント × 動物所作 × 通変星 を組み合わせ
+  function buildBeautyPersonalHook(c, b){
+    const sun   = D.ZODIAC[c.sunSign]   || {};
+    const venus = D.ZODIAC[c.venusSign] || {};
+    const sunElem   = sun.element   || '';
+    const venusElem = venus.element || '';
+
+    // 金星×太陽の組合せが生む「美の質」
+    const venusVoice = {
+      '火':'金星が"火"のあなたの美は、纏うほどに体温が上がり、見る人の心まで熱くする力',
+      '土':'金星が"土"のあなたの美は、触れたくなる質感そのものが武器になる「触覚の美」',
+      '風':'金星が"風"のあなたの美は、瞬間の表情や仕草が記憶に残る「動きの美」',
+      '水':'金星が"水"のあなたの美は、纏った瞬間に空気を変える「気配の美」'
+    }[venusElem] || '';
+
+    // 太陽×金星のクロスで「だからあなたの美は唯一無二」
+    const crossLine = (sunElem && venusElem && sunElem !== venusElem)
+      ? `太陽は"${sunElem}"なのに金星は"${venusElem}"——この二つのギャップこそが、あなたを他の誰とも違う存在にしている`
+      : (sunElem && venusElem && sunElem === venusElem)
+        ? `太陽も金星も"${sunElem}"で一つのエレメントに統一されているから、迷わず一貫した美の世界を打ち出せる`
+        : '';
+
+    // 動物所作（しぐさ・佇まいの自然な質）
+    const animalName = (c.animal && c.animal.animal != null && D.ANIMALS && D.ANIMALS[c.animal.animal]) ? D.ANIMALS[c.animal.animal].name : '';
+    const animalManner = {
+      '狼':'ひとりの時間を恐れない凛とした立ち姿',
+      'こじか':'警戒と好奇心が同居する繊細な眼差し',
+      '猿':'場を一瞬で明るくする身軽な所作',
+      'チータ':'目的に向かって一直線に進む潔さ',
+      '黒ひょう':'隙のない美意識と研ぎ澄まされた選択眼',
+      'ライオン':'品格と威厳を自然に纏う佇まい',
+      '虎':'信頼できる人にだけ見せる柔らかさ',
+      'たぬき':'人を安心させる丸みと温かさ',
+      'コアラ':'時間に追われず自分のペースを守る余裕',
+      'ゾウ':'長期的な視点と揺るぎない存在感',
+      'ひつじ':'人と調和しながら自分らしさを失わない',
+      'ペガサス':'独自の世界観でルールを超越する自由さ'
+    };
+    const animalLine = animalName && animalManner[animalName]
+      ? `動物占いの「${animalName}」が示す、${animalManner[animalName]}も、この美の世界観に説得力を与えている`
+      : '';
+
+    // 通変星が「美の出し方」を決める
+    const tsuuhen = c.tsuuhenIdx != null && D.TSUUHEN ? D.TSUUHEN[c.tsuuhenIdx] : null;
+    const tsuuhenMagic = {
+      '比肩':'自分の軸を貫く強さが美の核', '劫財':'人を巻き込む情熱が美の核',
+      '食神':'楽しさを伝染させる柔らかさが美の核', '傷官':'研ぎ澄まされた感性と表現が美の核',
+      '偏財':'場を読んで人を喜ばせる才覚が美の核', '正財':'継続と安定がにじむ落ち着きが美の核',
+      '偏官':'凛とした緊張感と決断力が美の核', '正官':'品格と責任を纏う威厳が美の核',
+      '偏印':'独自視点と神秘性が美の核', '印綬':'知性と母性が同居する深さが美の核'
+    };
+    const tsuuhenLine = (tsuuhen && tsuuhenMagic[tsuuhen.name])
+      ? `通変星「${tsuuhen.name}」のあなたは、${tsuuhenMagic[tsuuhen.name]}になります`
+      : '';
+
+    const p = STATE.profile || {};
+    const nameDisp = (p.sei || p.mei) ? `${escapeHtml(p.sei)}${escapeHtml(p.mei)}さま` : 'あなた';
+
+    const parts = [venusVoice, crossLine, animalLine, tsuuhenLine].filter(Boolean);
+    if (!parts.length) return '';
+
+    return `
+      <div class="beauty-personal-hook" style="background:linear-gradient(135deg,#fff0f5 0%,#fde6ec 100%);border-left:3px solid #d68aa5;padding:1rem 1.2rem;margin:.8rem 0;border-radius:0 8px 8px 0;">
+        <div style="font-size:11px;letter-spacing:.3em;color:#a85f7a;font-weight:700;margin-bottom:.5rem;">✿ なぜこの美の世界観が、あなたを最も輝かせるのか</div>
+        <p style="line-height:1.85;margin:0;">${nameDisp}、「${escapeHtml(b.name)}」があなたの美の正解である理由は、命式に書き込まれています。${escapeHtml(parts.join('。'))}。だから流行を追う必要はありません。この方向だけを磨いてください。</p>
+      </div>
     `;
   }
 
@@ -996,6 +1255,8 @@
         </div>
         <div class="fortune-body">
           <p class="beauty-lead">${escapeHtml(b.worldview)}</p>
+
+          ${buildBeautyPersonalHook(c, b)}
 
           <div class="beauty-magic">
             <div class="beauty-magic-label">▼ あなたの魔法</div>
@@ -1857,17 +2118,26 @@
     const p = STATE.profile || {};
     const today = new Date();
     const age = today.getFullYear() - p.y - ((today.getMonth()+1 < p.m || (today.getMonth()+1===p.m && today.getDate()<p.d)) ? 1 : 0);
+    // 日干を取得して、新構造（themes[stem][cycle]）対応 + 旧構造（themes[cycle]）フォールバック
+    const dayStemName = (c.dayStem != null && STEMS[c.dayStem]) ? STEMS[c.dayStem] : '';
     const rows = c.daiun.cycles.map((cy, i) => {
       const inRange = age >= cy.ageStart && age <= cy.ageEnd;
       const bg = inRange ? '#ffe9ce' : '#fff7f4';
       const border = inRange ? '#d49a4e' : '#e8d7e0';
+      // 新構造：themes[dayStem][i] / 旧構造：themes[i]
+      let themeText = '';
+      if (dayStemName && themes[dayStemName] && typeof themes[dayStemName] === 'object') {
+        themeText = themes[dayStemName][i] || themes[i] || '';
+      } else {
+        themeText = themes[i] || '';
+      }
       return `
         <div style="background:${bg};border:1px solid ${border};border-radius:10px;padding:.6rem .8rem;margin-bottom:.4rem;">
           <div style="font-weight:600;color:#3a2b5a;margin-bottom:.2rem;">
             ${cy.ageStart}〜${cy.ageEnd}歳　${escapeHtml(STEMS[cy.stem])}${escapeHtml(BRANCHES[cy.branch])}
             ${inRange ? ' <span style="background:#d49a4e;color:#fff;padding:1px 6px;border-radius:8px;font-size:10px;margin-left:.4rem;">今ココ</span>' : ''}
           </div>
-          <div style="font-size:12.5px;color:#5a4a6a;line-height:1.6;">${escapeHtml(themes[i] || '')}</div>
+          <div style="font-size:12.5px;color:#5a4a6a;line-height:1.6;">${escapeHtml(themeText)}</div>
         </div>
       `;
     }).join('');
@@ -2171,25 +2441,113 @@
   }
 
   // ---------- カテゴリ6: 若返り開運アクション ----------
+  // ---------- カテゴリ6 補助: 「あなたが今すぐ始めるべき3領域」抽出 ----------
+  // 心の歪みタイプ + エレメント + 通変星 から、12領域を優先順位付け
+  function pickPriorityActions(c){
+    const hIdx = hizumiIndexOf(c);
+    const hName = (D.HIZUMI && D.HIZUMI[hIdx] && D.HIZUMI[hIdx].name) || '';
+    const elem = elementOf(c);
+
+    // 心の歪み → 最も効く2領域（27タイプ対応）
+    const byHizumi = {
+      '我慢蓄積タイプ':       ['breath','words'],
+      '完璧主義タイプ':       ['thought','sleep'],
+      '自分軸消失タイプ':     ['words','fashion'],
+      '不安先読みタイプ':     ['breath','morning'],
+      '罪悪感タイプ':         ['perfume','fashion'],
+      '無価値感タイプ':       ['posture','words'],
+      '見捨てられ不安タイプ': ['relation','sns'],
+      '怒り抑圧タイプ':       ['exercise','words'],
+      '感情遮断タイプ':       ['relation','perfume'],
+      '過剰共感タイプ':       ['perfume','breath'],
+      '役割同一化タイプ':     ['fashion','words'],
+      '過去執着タイプ':       ['morning','exercise'],
+      '依存的世話焼きタイプ': ['perfume','sleep'],
+      '自己批判タイプ':       ['words','posture'],
+      '比較劣等タイプ':       ['fashion','posture'],
+      '外向偽装タイプ':       ['sleep','breath'],
+      '白黒思考タイプ':       ['thought','breath'],
+      '未来不安先回りタイプ': ['breath','morning'],
+      'セルフネグレクトタイプ':['food','sleep'],
+      '承認欲求過多タイプ':   ['posture','words'],
+      '優柔不断回避タイプ':   ['thought','morning'],
+      '燃え尽き慢性タイプ':   ['sleep','food'],
+      '身体感覚遮断タイプ':   ['exercise','food'],
+      '過剰自立タイプ':       ['relation','perfume'],
+      '迎合タイプ':           ['words','fashion'],
+      '攻撃回避タイプ':       ['posture','breath'],
+      '内向き暴走タイプ':     ['words','exercise']
+    }[hName] || ['breath','sleep'];
+
+    // エレメント → 補完1領域
+    const byElem = {
+      '火':'morning',  // 火は朝のリズムで燃え方が変わる
+      '土':'food',     // 土は食で土台を整える
+      '風':'thought',  // 風は思考のチューニング
+      '水':'sleep'     // 水は休息で深く整う
+    }[elem] || 'sleep';
+
+    // 重複除去して3つに
+    const set = [...byHizumi, byElem];
+    const uniq = [];
+    set.forEach(k => { if (!uniq.includes(k)) uniq.push(k); });
+    // 3未満なら他のデフォルトで埋める
+    const fallback = ['posture','perfume','words','exercise'];
+    fallback.forEach(k => { if (uniq.length < 3 && !uniq.includes(k)) uniq.push(k); });
+    return uniq.slice(0, 3);
+  }
+  function buildPriorityReason(c){
+    const hIdx = hizumiIndexOf(c);
+    const hName = (D.HIZUMI && D.HIZUMI[hIdx] && D.HIZUMI[hIdx].name) || '';
+    const elem = elementOf(c);
+    const reasonH = hName ? `心の歪みが「${escapeHtml(hName)}」のあなたには、` : '';
+    const reasonE = `「${escapeHtml(elem)}」エレメントの質を整える領域を組み合わせて、最短で変化を実感できる3つを選びました。`;
+    return reasonH + reasonE;
+  }
+
   function renderCat6(c) {
     const elem = elementOf(c);
     const a = D.OPENLUCK_ACTION && D.OPENLUCK_ACTION[elem];
     if (!a) return '<div class="cat-header"><h2>若返り開運アクション</h2></div>';
 
     const areas = [
-      ['🛌','睡眠', a.sleep],
-      ['🌬','呼吸', a.breath],
-      ['🧘','姿勢', a.posture],
-      ['💬','言葉', a.words],
-      ['🌅','朝習慣', a.morning],
-      ['🍴','食事', a.food],
-      ['👥','人間関係', a.relation],
-      ['📱','SNS・発信', a.sns],
-      ['👗','ファッション', a.fashion],
-      ['🌸','香り', a.perfume],
-      ['🏃','運動', a.exercise],
-      ['🧠','思考', a.thought]
+      ['🛌','睡眠', a.sleep, 'sleep'],
+      ['🌬','呼吸', a.breath, 'breath'],
+      ['🧘','姿勢', a.posture, 'posture'],
+      ['💬','言葉', a.words, 'words'],
+      ['🌅','朝習慣', a.morning, 'morning'],
+      ['🍴','食事', a.food, 'food'],
+      ['👥','人間関係', a.relation, 'relation'],
+      ['📱','SNS・発信', a.sns, 'sns'],
+      ['👗','ファッション', a.fashion, 'fashion'],
+      ['🌸','香り', a.perfume, 'perfume'],
+      ['🏃','運動', a.exercise, 'exercise'],
+      ['🧠','思考', a.thought, 'thought']
     ];
+
+    // ★ 命式から「今すぐ始めるべき3領域」を抽出
+    const priorityKeys = pickPriorityActions(c);
+    const priorityAreas = priorityKeys.map(k => areas.find(ar => ar[3] === k)).filter(Boolean);
+    const priorityHTML = priorityAreas.map((ar, i) => `
+      <div class="priority-action-row" style="display:flex;gap:.8rem;padding:.7rem .8rem;background:rgba(255,255,255,0.6);border-radius:8px;margin-bottom:.5rem;align-items:flex-start;">
+        <div style="font-size:11px;color:#c89060;font-weight:700;min-width:1.6rem;">#${i+1}</div>
+        <div style="font-size:1.4rem;">${ar[0]}</div>
+        <div style="flex:1;">
+          <div style="font-size:13px;color:#9a6840;font-weight:700;letter-spacing:.1em;margin-bottom:.2rem;">${escapeHtml(ar[1])}</div>
+          <div style="line-height:1.7;">${escapeHtml(ar[2])}</div>
+        </div>
+      </div>
+    `).join('');
+    const priorityReason = buildPriorityReason(c);
+
+    const personalTopBlock = priorityAreas.length ? `
+      <div class="action-priority-card" style="background:linear-gradient(135deg,#fff8ec 0%,#fdecd2 100%);border-left:3px solid #c89060;padding:1rem 1.1rem;margin:.8rem 0 1.2rem 0;border-radius:0 10px 10px 0;">
+        <div style="font-size:11px;letter-spacing:.3em;color:#9a6840;font-weight:700;margin-bottom:.6rem;">★ あなたが今すぐ始めるべき、優先3領域</div>
+        ${priorityReason ? `<p style="line-height:1.85;margin:0 0 .8rem 0;font-size:13px;color:#7a5530;">${priorityReason}</p>` : ''}
+        ${priorityHTML}
+        <div style="font-size:12px;color:#9a6840;margin-top:.7rem;line-height:1.7;">※ 12領域を一気に始めなくていい。あなたの命式が一番効きやすい順にピックアップしました。まずはこの3つから。</div>
+      </div>
+    ` : '';
     const rows = areas.map(([icon, label, val]) => `
       <div class="action-row">
         <div class="action-icon">${icon}</div>
@@ -2207,6 +2565,8 @@
       </div>
 
       ${personalSignature(c, 'cat6')}
+
+      ${personalTopBlock}
 
       <div class="fortune-card action-card">
         <div class="action-deco">★ ACTION ★</div>
@@ -2229,10 +2589,128 @@
     `;
   }
 
+  // ---------- カテゴリ7 補助: あなただけの「人生変革コア」 ----------
+  // 命式の全軸 × 心の歪み × ステージ × 今年の九星 を統合して、唯一無二の最終ナラティブを生成
+  function buildRoadmapPersonalCore(c){
+    const z       = D.ZODIAC[c.sunSign]   || {};
+    const venus   = D.ZODIAC[c.venusSign] || {};
+    const stemRaw = (c.dayStem != null && D.STEMS && D.STEMS[c.dayStem]) ? D.STEMS[c.dayStem].name : '';
+    const stem    = stemRaw.replace(/[（(].*$/, '').trim();
+    const elem    = (z.element || '');
+    const venElem = (venus.element || '');
+    const nineNames = ['','一白水星','二黒土星','三碧木星','四緑木星','五黄土星','六白金星','七赤金星','八白土星','九紫火星'];
+    const nineName = nineNames[c.nineStar] || '';
+    const lp = c.lifePath;
+    const a  = ageOf();
+
+    // 心の歪みタイプ名
+    const hIdx = hizumiIndexOf(c);
+    const hName = (D.HIZUMI && D.HIZUMI[hIdx] && D.HIZUMI[hIdx].name) || '';
+    // 人生ステージ名
+    const sIdx = stageIndexOf(c);
+    const sName = (D.LIFE_STAGE && D.LIFE_STAGE[sIdx] && D.LIFE_STAGE[sIdx].name) || '';
+    // 美の才能タイプ名
+    const bIdx = beautyIndexOf(c);
+    const bName = (D.BEAUTY_TYPE && D.BEAUTY_TYPE[bIdx] && D.BEAUTY_TYPE[bIdx].name) || '';
+    // 動物60キャラ
+    const charName = (c.animal && c.animal.char && c.animal.char.name) || '';
+    // 通変星
+    const tsuuhen = c.tsuuhenIdx != null && D.TSUUHEN ? D.TSUUHEN[c.tsuuhenIdx] : null;
+    const tsuuhenName = (tsuuhen && tsuuhen.name) || '';
+
+    const p = STATE.profile || {};
+    const nameDisp = (p.sei || p.mei) ? `${escapeHtml(p.sei)}${escapeHtml(p.mei)}さま` : 'あなた';
+
+    // 【1】あなただけの人生のテーマ（5軸統合）
+    const themeByElem = {
+      '火':'燃やしながら生きる', '土':'積み上げながら生きる', '風':'循環させながら生きる', '水':'感じ取りながら生きる'
+    }[elem] || '自分らしく生きる';
+    const themeByHizumi = {
+      '我慢蓄積タイプ':'抑え込んだ感情を解放する', '完璧主義タイプ':'未完成な自分を許す',
+      '自分軸消失タイプ':'本当の声を取り戻す', '不安先読みタイプ':'今ここに戻る',
+      '罪悪感タイプ':'自分の幸せを最優先する', '無価値感タイプ':'存在そのものを認める',
+      '見捨てられ不安タイプ':'孤独と仲直りする', '怒り抑圧タイプ':'怒りを言葉にする',
+      '感情遮断タイプ':'感じることを許可する',
+      '過剰共感タイプ':'自分と他人の境界線を引き直す','役割同一化タイプ':'役割を脱いだ素のあなたに戻る',
+      '過去執着タイプ':'過去を完了させ今を選ぶ','依存的世話焼きタイプ':'与える喜びを自分にも向ける',
+      '自己批判タイプ':'内側の声に優しさを持ち込む','比較劣等タイプ':'比べる軸そのものを手放す',
+      '外向偽装タイプ':'本当の温度感に戻る','白黒思考タイプ':'グレーの豊かさを受け入れる',
+      '未来不安先回りタイプ':'今この瞬間に身体を戻す','セルフネグレクトタイプ':'自分を一番大切な存在として扱う',
+      '承認欲求過多タイプ':'承認の源を内側に作り直す','優柔不断回避タイプ':'小さな選択から決める練習をする',
+      '燃え尽き慢性タイプ':'熱中と回復のリズムを整える','身体感覚遮断タイプ':'身体の声を聴く力を取り戻す',
+      '過剰自立タイプ':'頼ることを練習する','迎合タイプ':'本音を小さく出す勇気を持つ',
+      '攻撃回避タイプ':'自分を守る境界線を持つ','内向き暴走タイプ':'内なる責める声と仲直りする'
+    }[hName] || '自分を取り戻す';
+    const lifeTheme = `『${themeByElem}』ことを通して、『${themeByHizumi}』こと——これが、${nameDisp}の人生の根本テーマ`;
+
+    // 【2】3ヶ月後（今年の九星年運 × ステージで動的に）
+    const yearPhase = ((new Date().getFullYear() + (c.nineStar || 1)) % 9) + 1;
+    const next3 = {
+      1:'新しい関係・新しい習慣・新しい言葉を、ひとつだけ意識的に取り入れる',
+      2:'既に始まっている小さなことを、焦らず丁寧に手入れする',
+      3:'長く眠っていた才能を、表に出すための小さな実験を始める',
+      4:'来た波には素直に乗り、人脈とチャンスを意識的に広げる',
+      5:'誰かを支えたり、何かの中核を担う役を引き受ける',
+      6:'散らかった人間関係・モノ・予定を、思い切って削ぎ落とす',
+      7:'これまでの努力を形にし、受け取る練習をする',
+      8:'古い自分を怖がらず手放し、変化に身を委ねる',
+      9:'一つのサイクルを閉じ、次に向けた静かな準備をする'
+    }[yearPhase] || '';
+
+    // 【3】1年後（命式の核 × 歪み解放後 の理想像）
+    const after1yr = `${a}歳から${a+1}歳になった${nameDisp}は、${hName ? `「${hName}」を手放し始め、` : ''}${charName ? `${charName}の本来の輝きを取り戻し、` : ''}${bName ? `「${bName}」として周囲を惹きつけ、` : ''}${tsuuhenName ? `通変星「${tsuuhenName}」のエネルギーが整い、` : ''}今より2割軽やかに、3割自分らしく生きているはず`;
+
+    // 【4】統合された一言（あなたの命式キーフレーズ）
+    const keyPhrase = `${stem ? stem + '×' : ''}${charName || elem}×${nineName ? nineName.charAt(0)+nineName.charAt(1) : ''}×数秘${lp}`;
+
+    return `
+      <div class="roadmap-personal-core" style="background:linear-gradient(135deg,#fef9f0 0%,#fdeed5 50%,#fae0c8 100%);border:2px solid #c89060;padding:1.5rem 1.4rem;margin:1rem 0 1.4rem 0;border-radius:12px;box-shadow:0 4px 20px rgba(200,144,96,0.15);">
+        <div style="text-align:center;font-size:11px;letter-spacing:.4em;color:#9a6840;font-weight:700;margin-bottom:1rem;">◆ ULTIMATE CORE — ${nameDisp.replace(/さま$/,'')}様だけの統合解 ◆</div>
+
+        <div style="text-align:center;padding:.6rem;margin-bottom:1.2rem;background:rgba(255,255,255,0.5);border-radius:8px;font-size:13px;letter-spacing:.15em;color:#8c5a30;">
+          あなたの命式キー　<strong style="font-size:15px;letter-spacing:.05em;">${escapeHtml(keyPhrase)}</strong>
+        </div>
+
+        <div style="margin-bottom:1.1rem;">
+          <div style="font-size:12px;letter-spacing:.3em;color:#9a6840;font-weight:700;margin-bottom:.5rem;">▼ あなただけの人生のテーマ</div>
+          <p style="line-height:1.95;margin:0;font-size:15px;">${escapeHtml(lifeTheme)}。</p>
+        </div>
+
+        <div style="margin-bottom:1.1rem;padding-top:1rem;border-top:1px dashed #d4a878;">
+          <div style="font-size:12px;letter-spacing:.3em;color:#9a6840;font-weight:700;margin-bottom:.5rem;">▼ 3ヶ月後の宇宙の追い風</div>
+          <p style="line-height:1.85;margin:0;">今年のあなたの九星リズムは「${escapeHtml((['','種をまく年','育む年','芽吹きの年','広がりの年','中心に立つ年','整える年','実りの年','変容の年','完成と手放しの年'])[yearPhase] || '')}」。だから${escapeHtml(next3)}ことが、宇宙の追い風と一致します。</p>
+        </div>
+
+        <div style="margin-bottom:.4rem;padding-top:1rem;border-top:1px dashed #d4a878;">
+          <div style="font-size:12px;letter-spacing:.3em;color:#9a6840;font-weight:700;margin-bottom:.5rem;">▼ 1年後の${escapeHtml(nameDisp)}</div>
+          <p style="line-height:1.85;margin:0;">${escapeHtml(after1yr)}です。</p>
+        </div>
+
+        <div style="margin-top:1.2rem;padding-top:1rem;border-top:1px dashed #d4a878;text-align:center;">
+          <p style="line-height:1.95;margin:0;font-size:14px;color:#6a4525;font-style:italic;">${nameDisp}、あなたは「${escapeHtml(sName)}」というステージで、「${escapeHtml(hName)}」を解き始め、「${escapeHtml(bName)}」として輝く準備が、すでに整っています。</p>
+        </div>
+      </div>
+    `;
+  }
+
   // ---------- カテゴリ7: 人生ロードマップ（最終レポート） ----------
   function renderCat7(c) {
     const elem = elementOf(c);
-    const r = D.ROADMAP && D.ROADMAP[elem];
+    // ROADMAP は新構造 (elem×stem の40パターン) に対応。旧構造（elemのみ）にもフォールバック
+    const stemRaw = (c.dayStem != null && D.STEMS && D.STEMS[c.dayStem]) ? D.STEMS[c.dayStem].name : '';
+    const stemKey = stemRaw.replace(/[（(].*$/, '').trim();
+    let r = null;
+    if (D.ROADMAP && D.ROADMAP[elem]) {
+      const eBlock = D.ROADMAP[elem];
+      // 新構造判定：エレメント直下に干キー(甲〜癸)がある
+      if (eBlock[stemKey] && eBlock[stemKey].lifeTheme) r = eBlock[stemKey];
+      else if (eBlock.lifeTheme) r = eBlock; // 旧構造（直下にlifeTheme）
+      else {
+        // 干キーは存在するが対象干が無い場合は最初の干を使う
+        const firstStem = Object.keys(eBlock)[0];
+        if (firstStem && eBlock[firstStem]) r = eBlock[firstStem];
+      }
+    }
     if (!r) return '<div class="cat-header"><h2>人生ロードマップ</h2></div>';
 
     const letGoLis = (r.letGo || []).map(t => `<li>${escapeHtml(t)}</li>`).join('');
@@ -2246,6 +2724,8 @@
       </div>
 
       ${personalSignature(c, 'cat7')}
+
+      ${buildRoadmapPersonalCore(c)}
 
       <div class="fortune-card roadmap-card">
         <div class="roadmap-deco">◆ ROADMAP ◆</div>
