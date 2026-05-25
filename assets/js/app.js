@@ -586,11 +586,21 @@
     if (t.getMonth() < bm || (t.getMonth() === bm && t.getDate() < bd)) a--;
     return a;
   }
-  // 心の歪み index 決定: lifePath (11/22/33 を含む) を 0〜8 に
+  // 心の歪み index 決定: lifePath × エレメント × dayStem偶奇 で 0〜26 に拡張
+  // 既存9タイプ(0-8) + 新18タイプ(9-26) = 27タイプ
   function hizumiIndexOf(c){
     const lp = c.lifePath;
     const base = (lp === 11) ? 2 : (lp === 22) ? 4 : (lp === 33) ? 6 : lp;
-    return ((base - 1) % 9 + 9) % 9;
+    const baseIdx = ((base - 1) % 9 + 9) % 9; // 0〜8
+    if (!D.HIZUMI || D.HIZUMI.length < 27) return baseIdx; // 後方互換
+    // 副軸：エレメントとdayStem偶奇を組み合わせて0〜2のサブ層を決める
+    const elem = (D.ZODIAC[c.sunSign] && D.ZODIAC[c.sunSign].element) || '土';
+    const elemKey = {'火':0,'土':1,'風':2,'水':0}[elem] || 0;
+    const stemOdd = (c.dayStem != null) ? (c.dayStem % 2) : 0; // 0=陽 1=陰
+    const sub = ((baseIdx + elemKey + stemOdd) % 3 + 3) % 3; // 0,1,2
+    // sub=0 → 基底9タイプ、sub=1 → 9-17の新タイプ、sub=2 → 18-26の新タイプ
+    if (sub === 0) return baseIdx;
+    return 9 + (sub - 1) * 9 + baseIdx;
   }
   // 人生ステージ index 決定: 年齢 + 九星 + 西暦下1桁の組合せ → 0〜6
   function stageIndexOf(c){
@@ -2108,17 +2118,26 @@
     const p = STATE.profile || {};
     const today = new Date();
     const age = today.getFullYear() - p.y - ((today.getMonth()+1 < p.m || (today.getMonth()+1===p.m && today.getDate()<p.d)) ? 1 : 0);
+    // 日干を取得して、新構造（themes[stem][cycle]）対応 + 旧構造（themes[cycle]）フォールバック
+    const dayStemName = (c.dayStem != null && STEMS[c.dayStem]) ? STEMS[c.dayStem] : '';
     const rows = c.daiun.cycles.map((cy, i) => {
       const inRange = age >= cy.ageStart && age <= cy.ageEnd;
       const bg = inRange ? '#ffe9ce' : '#fff7f4';
       const border = inRange ? '#d49a4e' : '#e8d7e0';
+      // 新構造：themes[dayStem][i] / 旧構造：themes[i]
+      let themeText = '';
+      if (dayStemName && themes[dayStemName] && typeof themes[dayStemName] === 'object') {
+        themeText = themes[dayStemName][i] || themes[i] || '';
+      } else {
+        themeText = themes[i] || '';
+      }
       return `
         <div style="background:${bg};border:1px solid ${border};border-radius:10px;padding:.6rem .8rem;margin-bottom:.4rem;">
           <div style="font-weight:600;color:#3a2b5a;margin-bottom:.2rem;">
             ${cy.ageStart}〜${cy.ageEnd}歳　${escapeHtml(STEMS[cy.stem])}${escapeHtml(BRANCHES[cy.branch])}
             ${inRange ? ' <span style="background:#d49a4e;color:#fff;padding:1px 6px;border-radius:8px;font-size:10px;margin-left:.4rem;">今ココ</span>' : ''}
           </div>
-          <div style="font-size:12.5px;color:#5a4a6a;line-height:1.6;">${escapeHtml(themes[i] || '')}</div>
+          <div style="font-size:12.5px;color:#5a4a6a;line-height:1.6;">${escapeHtml(themeText)}</div>
         </div>
       `;
     }).join('');
@@ -2429,7 +2448,7 @@
     const hName = (D.HIZUMI && D.HIZUMI[hIdx] && D.HIZUMI[hIdx].name) || '';
     const elem = elementOf(c);
 
-    // 心の歪み → 最も効く2領域
+    // 心の歪み → 最も効く2領域（27タイプ対応）
     const byHizumi = {
       '我慢蓄積タイプ':       ['breath','words'],
       '完璧主義タイプ':       ['thought','sleep'],
@@ -2439,7 +2458,25 @@
       '無価値感タイプ':       ['posture','words'],
       '見捨てられ不安タイプ': ['relation','sns'],
       '怒り抑圧タイプ':       ['exercise','words'],
-      '感情遮断タイプ':       ['relation','perfume']
+      '感情遮断タイプ':       ['relation','perfume'],
+      '過剰共感タイプ':       ['perfume','breath'],
+      '役割同一化タイプ':     ['fashion','words'],
+      '過去執着タイプ':       ['morning','exercise'],
+      '依存的世話焼きタイプ': ['perfume','sleep'],
+      '自己批判タイプ':       ['words','posture'],
+      '比較劣等タイプ':       ['fashion','posture'],
+      '外向偽装タイプ':       ['sleep','breath'],
+      '白黒思考タイプ':       ['thought','breath'],
+      '未来不安先回りタイプ': ['breath','morning'],
+      'セルフネグレクトタイプ':['food','sleep'],
+      '承認欲求過多タイプ':   ['posture','words'],
+      '優柔不断回避タイプ':   ['thought','morning'],
+      '燃え尽き慢性タイプ':   ['sleep','food'],
+      '身体感覚遮断タイプ':   ['exercise','food'],
+      '過剰自立タイプ':       ['relation','perfume'],
+      '迎合タイプ':           ['words','fashion'],
+      '攻撃回避タイプ':       ['posture','breath'],
+      '内向き暴走タイプ':     ['words','exercise']
     }[hName] || ['breath','sleep'];
 
     // エレメント → 補完1領域
@@ -2593,7 +2630,16 @@
       '自分軸消失タイプ':'本当の声を取り戻す', '不安先読みタイプ':'今ここに戻る',
       '罪悪感タイプ':'自分の幸せを最優先する', '無価値感タイプ':'存在そのものを認める',
       '見捨てられ不安タイプ':'孤独と仲直りする', '怒り抑圧タイプ':'怒りを言葉にする',
-      '感情遮断タイプ':'感じることを許可する'
+      '感情遮断タイプ':'感じることを許可する',
+      '過剰共感タイプ':'自分と他人の境界線を引き直す','役割同一化タイプ':'役割を脱いだ素のあなたに戻る',
+      '過去執着タイプ':'過去を完了させ今を選ぶ','依存的世話焼きタイプ':'与える喜びを自分にも向ける',
+      '自己批判タイプ':'内側の声に優しさを持ち込む','比較劣等タイプ':'比べる軸そのものを手放す',
+      '外向偽装タイプ':'本当の温度感に戻る','白黒思考タイプ':'グレーの豊かさを受け入れる',
+      '未来不安先回りタイプ':'今この瞬間に身体を戻す','セルフネグレクトタイプ':'自分を一番大切な存在として扱う',
+      '承認欲求過多タイプ':'承認の源を内側に作り直す','優柔不断回避タイプ':'小さな選択から決める練習をする',
+      '燃え尽き慢性タイプ':'熱中と回復のリズムを整える','身体感覚遮断タイプ':'身体の声を聴く力を取り戻す',
+      '過剰自立タイプ':'頼ることを練習する','迎合タイプ':'本音を小さく出す勇気を持つ',
+      '攻撃回避タイプ':'自分を守る境界線を持つ','内向き暴走タイプ':'内なる責める声と仲直りする'
     }[hName] || '自分を取り戻す';
     const lifeTheme = `『${themeByElem}』ことを通して、『${themeByHizumi}』こと——これが、${nameDisp}の人生の根本テーマ`;
 
@@ -2650,7 +2696,21 @@
   // ---------- カテゴリ7: 人生ロードマップ（最終レポート） ----------
   function renderCat7(c) {
     const elem = elementOf(c);
-    const r = D.ROADMAP && D.ROADMAP[elem];
+    // ROADMAP は新構造 (elem×stem の40パターン) に対応。旧構造（elemのみ）にもフォールバック
+    const stemRaw = (c.dayStem != null && D.STEMS && D.STEMS[c.dayStem]) ? D.STEMS[c.dayStem].name : '';
+    const stemKey = stemRaw.replace(/[（(].*$/, '').trim();
+    let r = null;
+    if (D.ROADMAP && D.ROADMAP[elem]) {
+      const eBlock = D.ROADMAP[elem];
+      // 新構造判定：エレメント直下に干キー(甲〜癸)がある
+      if (eBlock[stemKey] && eBlock[stemKey].lifeTheme) r = eBlock[stemKey];
+      else if (eBlock.lifeTheme) r = eBlock; // 旧構造（直下にlifeTheme）
+      else {
+        // 干キーは存在するが対象干が無い場合は最初の干を使う
+        const firstStem = Object.keys(eBlock)[0];
+        if (firstStem && eBlock[firstStem]) r = eBlock[firstStem];
+      }
+    }
     if (!r) return '<div class="cat-header"><h2>人生ロードマップ</h2></div>';
 
     const letGoLis = (r.letGo || []).map(t => `<li>${escapeHtml(t)}</li>`).join('');
