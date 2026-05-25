@@ -1,0 +1,225 @@
+/* ============================================================
+   yuru.css — 大人女性向け「ゆるい手書き風」テーマオーバーレイ
+   ・style.css をベースに、フォント・装飾・余白だけを上書き
+   ・ふんわりピンク／ベージュ／手書きフォント
+   ・破棄しやすいよう単一ファイルで完結
+   ============================================================ */
+
+:root{
+  --font-yuru-jp: "Klee One", "Zen Kurenaido", "Yusei Magic",
+                  "Hiragino Maru Gothic ProN", "Hiragino Sans", sans-serif;
+  --font-yuru-en: "Klee One", "Cormorant Garamond", serif;
+
+  --c-cream-soft: #fffaf5;
+  --c-peach-pale: #fff3ec;
+  --c-blush:      #fde6e0;
+  --c-rose-pale:  #fadbd8;
+
+  --r-yuru:    20px;
+  --r-yuru-lg: 28px;
+}
+
+/* ===== 本文フォントを手書き寄りに ===== */
+html, body{
+  font-family: var(--font-yuru-jp) !important;
+  letter-spacing: 0.03em;
+  line-height: 1.95;
+}
+
+/* ===== 見出し ===== */
+h1, h2, h3, h4{
+  font-family: var(--font-yuru-jp) !important;
+  font-weight: 600 !important;
+  letter-spacing: 0.05em;
+}
+
+/* ===== 数字・英文は少し丸い手書き感 ===== */
+.hero-title,
+.hero-deco-top,
+.gate-deco,
+.gate-title,
+.menu-tag,
+.fortune-result,
+.essence-deco,
+.beauty-deco,
+.roadmap-deco,
+.stage-deco{
+  font-family: var(--font-yuru-jp) !important;
+}
+
+/* ===== カードの角を更に丸く、線をやわらかく ===== */
+.fortune-card,
+.essence-deep-card,
+.stage-card,
+.beauty-type-card,
+.roadmap-card,
+.gate-card,
+.cat-header,
+.pillar{
+  border-radius: var(--r-yuru-lg) !important;
+  border-style: dashed !important;
+  border-width: 1.5px !important;
+  border-color: #f0d2c8 !important;
+  box-shadow: 0 8px 28px rgba(220, 150, 150, 0.08),
+              0 2px 6px rgba(220, 150, 150, 0.04) !important;
+}
+
+/* ===== ボタンを手書き感のあるピル形に ===== */
+button,
+.btn,
+.gate-btn{
+  font-family: var(--font-yuru-jp) !important;
+  border-radius: 999px !important;
+  letter-spacing: 0.1em;
+  font-weight: 600 !important;
+}
+
+button:hover,
+.btn:hover,
+.gate-btn:hover{
+  transform: translateY(-1px) rotate(-0.3deg);
+  transition: transform 0.18s ease;
+}
+
+/* ===== 入力欄を手書き寄りに ===== */
+input[type="text"],
+input[type="number"],
+input[type="password"],
+textarea,
+select{
+  font-family: var(--font-yuru-jp) !important;
+  border-radius: 14px !important;
+  border: 1.5px dashed #e8c8b8 !important;
+  background: var(--c-cream-soft) !important;
+}
+
+input:focus,
+textarea:focus,
+select:focus{
+  border-style: solid !important;
+  border-color: #d89a7a !important;
+  outline: none !important;
+  box-shadow: 0 0 0 3px rgba(216, 154, 122, 0.15) !important;
+}
+
+/* ===== セクション小見出しをふんわり装飾 ===== */
+.rich h4,
+.fortune-body h4{
+  background: linear-gradient(120deg, transparent 0%, #fde0d0 35%, #fde0d0 70%, transparent 100%);
+  background-size: 100% 0.6em;
+  background-repeat: no-repeat;
+  background-position: 0 80%;
+  display: inline-block;
+  padding: 0 .3em;
+  margin: .9em 0 .4em;
+  font-weight: 600;
+  color: #a06045;
+}
+
+/* ===== リスト記号をハートに ===== */
+.fortune-body ul,
+.rich ul,
+.stage-howto + .rich ul{
+  list-style: none;
+  padding-left: 0;
+}
+.fortune-body ul li,
+.rich ul li{
+  position: relative;
+  padding-left: 1.6em;
+  margin: .35em 0;
+  line-height: 1.75;
+}
+.fortune-body ul li::before,
+.rich ul li::before{
+  content: '✿';
+  position: absolute;
+  left: 0;
+  top: 0;
+  color: #d89a7a;
+  font-size: 0.95em;
+}
+
+/* ===== カードヘッダの装飾文字を手書き寄りに ===== */
+.essence-deco,
+.beauty-deco,
+.roadmap-deco,
+.stage-deco{
+  letter-spacing: 0.4em !important;
+  font-weight: 600 !important;
+  color: #c08868 !important;
+}
+
+/* ===== ふんわり背景（body の上書き） ===== */
+body{
+  background:
+    radial-gradient(ellipse 80% 60% at 15% 10%, rgba(255, 232, 220, 0.7) 0%, transparent 60%),
+    radial-gradient(ellipse 70% 60% at 85% 30%, rgba(252, 224, 232, 0.55) 0%, transparent 60%),
+    radial-gradient(ellipse 90% 70% at 50% 90%, rgba(255, 240, 230, 0.6) 0%, transparent 65%),
+    linear-gradient(180deg, #fff5ee 0%, #fde8e0 35%, #f9dde0 70%, #f5d3da 100%) !important;
+  background-attachment: fixed !important;
+}
+
+/* ===== カテゴリヘッダーの装飾 ===== */
+.cat-header{
+  background: linear-gradient(135deg, #fff8f3 0%, #fde8d4 100%) !important;
+  position: relative;
+}
+.cat-header::before,
+.cat-header::after{
+  content: '✿';
+  position: absolute;
+  top: 1rem;
+  font-size: 22px;
+  color: #d89a7a;
+  opacity: 0.6;
+}
+.cat-header::before{ left: 1.2rem; }
+.cat-header::after{ right: 1.2rem; }
+
+/* ===== ゲート画面のソフト化 ===== */
+.gate-overlay{
+  background: rgba(253, 240, 235, 0.95) !important;
+  backdrop-filter: blur(6px);
+}
+.gate-card{
+  background: var(--c-cream-soft) !important;
+  border: 2px dashed #f0c8b8 !important;
+  border-radius: var(--r-yuru-lg) !important;
+}
+
+/* ===== ピラー（柱）のホバー反応 ===== */
+.pillar{
+  background: var(--c-cream-soft) !important;
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+.pillar:hover{
+  transform: translateY(-3px) rotate(-0.5deg);
+  box-shadow: 0 12px 32px rgba(220, 150, 150, 0.15) !important;
+}
+
+/* ===== fortune-note（注釈）を柔らかい付箋風に ===== */
+.fortune-note{
+  background: #fff5ee !important;
+  border-left: 3px dashed #e8b8a0 !important;
+  border-radius: 0 14px 14px 0 !important;
+  padding: .7em 1em !important;
+  font-style: normal !important;
+  color: #9a7860 !important;
+}
+
+/* ===== メニュータグ ===== */
+.menu-tag{
+  background: linear-gradient(90deg, #f8d8c8 0%, #fde0d0 100%) !important;
+  color: #a06045 !important;
+  border-radius: 999px !important;
+  padding: .3em 1em !important;
+  font-weight: 600 !important;
+}
+
+/* ===== モバイル微調整 ===== */
+@media (max-width: 720px){
+  html, body{ line-height: 1.85; }
+  .fortune-card,
+  .essence-deep-card{ border-radius: 22px !important; }
+}
