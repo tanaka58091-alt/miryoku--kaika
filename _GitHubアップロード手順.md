@@ -59,18 +59,18 @@
 ### A. `assets/js/content.js`
 1. ターミナルで：
    ```bash
-   cat ~/Desktop/新占いサイト/assets/js/content.js | pbcopy
+   cat ~/Desktop/AIフォルダまとめ/新占いサイト/assets/js/content.js | pbcopy
    ```
 2. GitHub Web UI で `assets/js/content.js` を開く → 鉛筆アイコン → 中身を全選択 → 削除 → ペースト
 3. `Commit changes` → コミットメッセージ：`data: expand HIZUMI 9→27 / ROADMAP 4→40 / DAIUN 8→80`
 
 ### B. `assets/js/app.js`
-1. `cat ~/Desktop/新占いサイト/assets/js/app.js | pbcopy`
+1. `cat ~/Desktop/AIフォルダまとめ/新占いサイト/assets/js/app.js | pbcopy`
 2. GitHub Web UI で `assets/js/app.js` を開く → 編集 → 全置換
 3. コミットメッセージ：`app: hizumiIndexOf 27分岐 + renderCat7/daiunCard 新構造対応 + test preset`
 
 ### C. `index.html`
-1. `cat ~/Desktop/新占いサイト/index.html | pbcopy`
+1. `cat ~/Desktop/AIフォルダまとめ/新占いサイト/index.html | pbcopy`
 2. GitHub Web UI で `index.html` を開く → 編集 → 全置換
 3. コミットメッセージ：`html: scripts ?v=18`
 
