@@ -56,6 +56,32 @@
   };
 
   // ---------- 写真アップロード処理 ----------
+  // 長辺1200pxに縮小してから保持する。メモリ使用量と自動保存(localStorage)の
+  // 容量を抑えるため。縮小できない環境では元のDataURLをそのまま使う。
+  function downscalePhoto(dataUrl, maxEdge, quality){
+    maxEdge = maxEdge || 1200;
+    quality = quality || 0.82;
+    return new Promise((resolve) => {
+      try {
+        const img = new Image();
+        img.onload = () => {
+          try {
+            const w = img.naturalWidth, h = img.naturalHeight;
+            if (!w || !h || Math.max(w, h) <= maxEdge) { resolve(dataUrl); return; }
+            const scale = maxEdge / Math.max(w, h);
+            const cw = Math.round(w * scale), ch = Math.round(h * scale);
+            const cv = document.createElement('canvas');
+            cv.width = cw; cv.height = ch;
+            cv.getContext('2d').drawImage(img, 0, 0, cw, ch);
+            resolve(cv.toDataURL('image/jpeg', quality));
+          } catch (_) { resolve(dataUrl); }
+        };
+        img.onerror = () => resolve(dataUrl);
+        img.src = dataUrl;
+      } catch (_) { resolve(dataUrl); }
+    });
+  }
+
   function bindPhotoInput(inputId, previewId, key){
     const input = document.getElementById(inputId);
     const preview = document.getElementById(previewId);
@@ -70,9 +96,10 @@
       }
       const reader = new FileReader();
       reader.onload = (ev) => {
-        const dataUrl = ev.target.result;
-        STATE.tempPhotos[key] = dataUrl;
-        preview.innerHTML = `<img src="${dataUrl}" alt="" class="user-photo-thumb" />`;
+        downscalePhoto(ev.target.result).then((dataUrl) => {
+          STATE.tempPhotos[key] = dataUrl;
+          preview.innerHTML = `<img src="${dataUrl}" alt="" class="user-photo-thumb" />`;
+        });
       };
       reader.readAsDataURL(f);
     });
@@ -107,14 +134,58 @@
   const $ = (sel, root) => (root || document).querySelector(sel);
   const $$ = (sel, root) => Array.from((root || document).querySelectorAll(sel));
 
+  // 画面遷移のたびにブラウザ履歴へ1件積む。スマホの「戻る」ジェスチャー／
+  // 戻るボタンでサイトから離脱せず、1つ前の画面に戻れるようにするため。
+  // popstate起因の遷移では二重に積まないよう suppressHistory で抑制する。
+  let suppressHistory = false;
+
   function showScreen(id) {
     $$('.screen').forEach(s => s.classList.remove('active'));
     const el = document.getElementById(id);
     if (el) {
       el.classList.add('active');
       window.scrollTo({ top: 0, behavior: 'smooth' });
+      if (!suppressHistory) {
+        const entry = { screen: id, cat: (id === 'screen-category' ? STATE.currentCat : null) };
+        const cur = history.state;
+        if (!cur || cur.screen !== entry.screen || cur.cat !== entry.cat) {
+          try { history.pushState(entry, ''); } catch (_) {}
+        }
+      }
     }
   }
+
+  window.addEventListener('popstate', (e) => {
+    const st = e.state;
+    if (!st || !st.screen) return;
+    let dest = st.screen;
+    let cat = st.cat || null;
+    // 入力前は menu / category / report に戻れない（リセット直後など）
+    if (['screen-menu', 'screen-category', 'screen-report'].includes(dest) && !STATE.profile) {
+      dest = 'screen-input';
+      cat = null;
+    }
+    suppressHistory = true;
+    try {
+      if (dest === 'screen-category') {
+        if (cat && STATE.results[cat] && STATE.results[cat].html) {
+          // 診断済みの保存結果をそのまま再表示（乱数の引き直しはしない）
+          STATE.currentCat = cat;
+          $('#category-content').innerHTML = STATE.results[cat].html;
+        } else {
+          dest = 'screen-menu';
+        }
+      }
+      if (dest === 'screen-menu') updateMenuStatus();
+      if (dest === 'screen-report') {
+        const rc = $('#report-content');
+        if (!rc || rc.children.length === 0) buildReport(); // リロード後に戻ってきた場合の再構築
+      }
+      showScreen(dest);
+    } finally {
+      suppressHistory = false;
+    }
+  });
 
   // ---------- ナビゲーション ----------
   document.addEventListener('click', (e) => {
@@ -210,6 +281,9 @@
     }
     renderProfileSummary();
     updateMenuStatus();
+    persistState();
+    const notice = document.getElementById('resume-notice');
+    if (notice) notice.remove();
     showScreen('screen-menu');
   });
 
@@ -241,6 +315,141 @@
         status.textContent = '未診断';
       }
     });
+  }
+
+  // ---------- 自動保存＆再開（レジューム） ----------
+  // 入力内容と診断結果を端末内(localStorage)へ自動保存する。
+  // リロード・タブ破棄・後日の再訪でも続きから再開できるようにするため。
+  // 外部サーバーには一切送信しない。保存不可の環境では従来どおり動作する。
+  const SAVE_KEY = 'miryoku_save_v1';
+
+  function persistState(){
+    if (!STATE.profile) return;
+    const snapshot = {
+      ver: 1,
+      savedAt: new Date().toISOString(),
+      profile: STATE.profile,
+      results: {},
+      currentCat: STATE.currentCat || null
+    };
+    Object.keys(STATE.results).forEach(cat => {
+      if (STATE.results[cat] && STATE.results[cat].html) {
+        snapshot.results[cat] = { html: STATE.results[cat].html };
+      }
+    });
+    try {
+      localStorage.setItem(SAVE_KEY, JSON.stringify(snapshot));
+    } catch (_) {
+      // 容量超過時は写真(DataURL)を除いて再保存を試みる
+      try {
+        snapshot.profile = Object.assign({}, snapshot.profile, { facePhoto: null, palmPhoto: null });
+        Object.keys(snapshot.results).forEach(cat => {
+          snapshot.results[cat] = {
+            html: snapshot.results[cat].html.replace(/<img\b[^>]*\bsrc="data:[^"]*"[^>]*>/gi, '')
+          };
+        });
+        localStorage.setItem(SAVE_KEY, JSON.stringify(snapshot));
+      } catch (_) { /* 保存不可(プライベートブラウズ等)。従来動作のまま */ }
+    }
+  }
+
+  function clearSavedState(){
+    try { localStorage.removeItem(SAVE_KEY); } catch (_) {}
+  }
+
+  function prefillForm(p){
+    const set = (id, val) => { const el = document.getElementById(id); if (el) el.value = (val == null ? '' : val); };
+    set('in-sei', p.sei); set('in-mei', p.mei);
+    set('in-year', p.y);  set('in-month', p.m);  set('in-day', p.d);
+    set('in-hour', p.hour); set('in-prefecture', p.prefecture);
+    const sexRadio = document.querySelector(`input[name="sex"][value="${p.sex}"]`);
+    if (sexRadio) sexRadio.checked = true;
+    if (p.worryCat) {
+      const worryRadio = document.querySelector(`input[name="worry-cat"][value="${p.worryCat}"]`);
+      if (worryRadio) worryRadio.checked = true;
+    }
+    set('in-worry-text', p.worryText);
+    const setPreview = (previewId, dataUrl) => {
+      const preview = document.getElementById(previewId);
+      if (preview && dataUrl) preview.innerHTML = `<img src="${dataUrl}" alt="" class="user-photo-thumb" />`;
+    };
+    setPreview('prev-face', p.facePhoto);
+    setPreview('prev-palm', p.palmPhoto);
+  }
+
+  function showResumeNotice(savedAt){
+    const old = document.getElementById('resume-notice');
+    if (old) old.remove();
+    const container = document.querySelector('#screen-menu .container');
+    const anchor = document.getElementById('profile-summary');
+    if (!container || !anchor) return;
+    let dateLabel = '';
+    try {
+      const dt = new Date(savedAt);
+      if (!isNaN(dt.getTime())) {
+        dateLabel = `（${dt.getMonth()+1}月${dt.getDate()}日 ${String(dt.getHours()).padStart(2,'0')}:${String(dt.getMinutes()).padStart(2,'0')} 保存）`;
+      }
+    } catch (_) {}
+    const div = document.createElement('div');
+    div.id = 'resume-notice';
+    div.style.cssText = 'background:linear-gradient(135deg,#fff8f0 0%,#fdeede 100%);border:1px solid #e6c8a8;border-radius:10px;padding:.9rem 1.1rem;margin:0 0 1.2rem 0;display:flex;flex-wrap:wrap;align-items:center;gap:.6rem;justify-content:space-between;';
+    div.innerHTML = `
+      <span style="color:#8a5a2c;font-size:14px;">✦ 前回の続きから再開しました${escapeHtml(dateLabel)}。診断済みのメニューはそのまま見られます。</span>
+      <button type="button" id="btn-reset-diagnosis" style="background:none;border:1px solid #c89060;color:#8a5a2c;border-radius:999px;padding:.35rem .9rem;font-size:12px;cursor:pointer;">最初からやり直す</button>
+    `;
+    container.insertBefore(div, anchor);
+  }
+
+  document.addEventListener('click', (e) => {
+    const btn = e.target.closest('#btn-reset-diagnosis');
+    if (!btn) return;
+    if (!window.confirm('保存された診断データを消去して、最初からやり直しますか？\n（入力フォームの内容はそのまま残ります）')) return;
+    clearSavedState();
+    STATE.profile = null;
+    STATE.results = {};
+    STATE.currentCat = null;
+    const notice = document.getElementById('resume-notice');
+    if (notice) notice.remove();
+    showScreen('screen-input');
+  });
+
+  function restoreState(){
+    let saved = null;
+    try {
+      const raw = localStorage.getItem(SAVE_KEY);
+      if (raw) saved = JSON.parse(raw);
+    } catch (_) { return false; }
+    if (!saved || !saved.profile) return false;
+    const p = saved.profile;
+    if (!p.y || !p.m || !p.d) return false;
+
+    STATE.profile = p;
+    STATE.results = {};
+    Object.keys(saved.results || {}).forEach(cat => {
+      if (saved.results[cat] && saved.results[cat].html) {
+        STATE.results[cat] = { html: saved.results[cat].html };
+      }
+    });
+    STATE.currentCat = saved.currentCat || null;
+    STATE.tempPhotos.face = p.facePhoto || null;
+    STATE.tempPhotos.palm = p.palmPhoto || null;
+    STATE.photoAnalysis = { palm: null, face: null };
+    if (window.PhotoAnalysis) {
+      if (p.palmPhoto) {
+        window.PhotoAnalysis.analyzePalm(p.palmPhoto, p.y, p.m, p.d)
+          .then(r => { if (r) STATE.photoAnalysis.palm = r; });
+      }
+      if (p.facePhoto) {
+        window.PhotoAnalysis.analyzeFace(p.facePhoto, p.y, p.m, p.d)
+          .then(r => { if (r) STATE.photoAnalysis.face = r; });
+      }
+    }
+    prefillForm(p);
+    renderProfileSummary();
+    updateMenuStatus();
+    showResumeNotice(saved.savedAt);
+    showScreen('screen-menu');
+    return true;
   }
 
   // ---------- 共通: 各占いの計算結果オブジェクトを生成 ----------
@@ -357,6 +566,7 @@
 
     // 結果を保存（PDF用）
     STATE.results[cat] = { calc, html };
+    persistState();
 
     $('#category-content').innerHTML = html;
     showScreen('screen-category');
@@ -2956,6 +3166,9 @@
 
     $('#report-content').innerHTML = report;
 
+    // 自動計算された未診断カテゴリも含めて保存
+    persistState();
+
     // AI 総合シンセシスを非同期生成（バックグラウンド）
     triggerAISynthesis(calc);
   }
@@ -3022,6 +3235,14 @@
   }
 
   // ---------- 初期表示 ----------
-  showScreen('screen-top');
+  // 保存データがあれば続きから再開、なければTOPへ。
+  // 初期画面は履歴に積まず、現在の履歴エントリに紐づける（起点）。
+  suppressHistory = true;
+  if (!restoreState()) showScreen('screen-top');
+  suppressHistory = false;
+  try {
+    const initial = document.querySelector('.screen.active');
+    history.replaceState({ screen: initial ? initial.id : 'screen-top', cat: null }, '');
+  } catch (_) {}
 
 })();
