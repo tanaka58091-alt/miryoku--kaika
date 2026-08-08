@@ -144,6 +144,12 @@
     const el = document.getElementById(id);
     if (el) {
       el.classList.add('active');
+      // 追従PDF保存ボタンはレポート画面のみ表示。画面を離れたら保存パネルも閉じる
+      document.body.classList.toggle('report-active', id === 'screen-report');
+      if (id !== 'screen-report') {
+        const sheet = document.getElementById('pdf-sheet');
+        if (sheet) sheet.setAttribute('hidden', '');
+      }
       window.scrollTo({ top: 0, behavior: 'smooth' });
       if (!suppressHistory) {
         const entry = { screen: id, cat: (id === 'screen-category' ? STATE.currentCat : null) };
@@ -3234,6 +3240,26 @@
     else el.setAttribute('hidden', '');
   }
 
+  // ---------- 追従PDF保存ボタン（レポート画面右下） ----------
+  // 直接印刷せず、機種別ガイド＋保存ボタンの位置へスクロールする。
+  // ガイドを読んでから保存操作に入ってもらうため。
+  // 追従ボタン → その場で保存パネル（機種別ガイド＋保存ボタン）を開く。
+  // レポートは数十万pxの高さがありスクロール誘導は不確実なため、
+  // どこにいても1タップで保存操作に入れるパネル方式にしている。
+  const pdfFab = document.getElementById('btn-download-pdf-fab');
+  const pdfSheet = document.getElementById('pdf-sheet');
+  if (pdfFab && pdfSheet) {
+    pdfFab.addEventListener('click', () => pdfSheet.removeAttribute('hidden'));
+    const sheetClose = document.getElementById('pdf-sheet-close');
+    if (sheetClose) sheetClose.addEventListener('click', () => pdfSheet.setAttribute('hidden', ''));
+    const sheetSave = document.getElementById('btn-download-pdf-sheet');
+    if (sheetSave) sheetSave.addEventListener('click', () => {
+      pdfSheet.setAttribute('hidden', '');
+      const real = document.getElementById('btn-download-pdf');
+      if (real) real.click();
+    });
+  }
+
   // ---------- 機種別 PDF保存ガイド ----------
   // 「送信先をPDFに保存へ変更」はデスクトップChrome専用の手順で、
   // iPhone / Android / Mac Safari では実際の画面と一致しない。
@@ -3254,7 +3280,7 @@
       ios: {
         title: 'iPhone・iPadでの保存手順',
         list: [
-          '上の「PDF／印刷で保存」ボタンを押す',
+          '「PDF／印刷で保存」ボタンを押す',
           '印刷プレビューが開いたら、<strong>共有ボタン（□に↑）</strong>をタップ',
           '「<strong>&ldquo;ファイル&rdquo;に保存</strong>」を選んで完了'
         ],
@@ -3263,7 +3289,7 @@
       android: {
         title: 'Androidでの保存手順',
         list: [
-          '上の「PDF／印刷で保存」ボタンを押す',
+          '「PDF／印刷で保存」ボタンを押す',
           '上部のプリンター欄で「<strong>PDF形式で保存</strong>」を選ぶ',
           '<strong>保存（ダウンロード）ボタン</strong>をタップして完了'
         ],
@@ -3272,7 +3298,7 @@
       macsafari: {
         title: 'Mac（Safari）での保存手順',
         list: [
-          '上の「PDF／印刷で保存」ボタンを押す',
+          '「PDF／印刷で保存」ボタンを押す',
           'ダイアログ左下の「<strong>PDF</strong>」メニューをクリック',
           '「<strong>PDFとして保存</strong>」を選んで完了'
         ],
@@ -3281,7 +3307,7 @@
       desktop: {
         title: 'パソコンでの保存手順',
         list: [
-          '上の「PDF／印刷で保存」ボタンを押す',
+          '「PDF／印刷で保存」ボタンを押す',
           '送信先（プリンター欄）を「<strong>PDFに保存</strong>」に変更',
           '「<strong>保存</strong>」を押して完了'
         ],
@@ -3290,7 +3316,7 @@
     };
     const g = GUIDES[detectPdfPlatform()] || GUIDES.desktop;
     const lis = g.list.map(t => `<li style="margin:.25rem 0;">${t}</li>`).join('');
-    box.innerHTML = `
+    const guideHtml = `
       <div style="max-width:560px;margin:0 auto;text-align:left;">
         <div style="font-weight:600;color:#8a5a2c;margin-bottom:.35rem;">✦ ${g.title}</div>
         <ol style="margin:.2rem 0 .4rem 1.4rem;padding:0;">${lis}</ol>
@@ -3298,6 +3324,10 @@
         <div style="font-size:12px;color:#a07a5a;border-top:1px dashed #e6c8a8;margin-top:.6rem;padding-top:.5rem;">保存がうまくいかなくても大丈夫です。診断結果はこのブラウザ内に自動保存されており、次回このサイトを開いたときにいつでも見返せます。</div>
       </div>
     `;
+    box.innerHTML = guideHtml;
+    // 追従ボタンから開く保存パネルにも同じガイドを表示
+    const sheetBox = document.getElementById('pdf-sheet-guide');
+    if (sheetBox) sheetBox.innerHTML = guideHtml;
   }
 
   // ---------- 初期表示 ----------
