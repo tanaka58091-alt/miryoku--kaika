@@ -3234,9 +3234,76 @@
     else el.setAttribute('hidden', '');
   }
 
+  // ---------- 機種別 PDF保存ガイド ----------
+  // 「送信先をPDFに保存へ変更」はデスクトップChrome専用の手順で、
+  // iPhone / Android / Mac Safari では実際の画面と一致しない。
+  // 端末を判定し、その機種の実際の操作手順を保存ボタン下に表示する。
+  function detectPdfPlatform(){
+    const ua = navigator.userAgent || '';
+    const iPadOS = navigator.platform === 'MacIntel' && (navigator.maxTouchPoints || 0) > 1;
+    if (/iPhone|iPad|iPod/.test(ua) || iPadOS) return 'ios';
+    if (/Android/.test(ua)) return 'android';
+    if (/Macintosh/.test(ua) && /Safari\//.test(ua) && !/Chrome|Chromium|Edg\/|OPR\//.test(ua)) return 'macsafari';
+    return 'desktop';
+  }
+
+  function setupPdfGuide(){
+    const box = document.getElementById('pdf-guide');
+    if (!box) return;
+    const GUIDES = {
+      ios: {
+        title: 'iPhone・iPadでの保存手順',
+        list: [
+          '上の「PDF／印刷で保存」ボタンを押す',
+          '印刷プレビューが開いたら、<strong>共有ボタン（□に↑）</strong>をタップ',
+          '「<strong>&ldquo;ファイル&rdquo;に保存</strong>」を選んで完了'
+        ],
+        hint: '共有ボタンが見つからないときは、プレビューの紙面を2本の指で広げる（ピンチアウト）と大きなプレビューが開き、右上に共有ボタンが現れます。'
+      },
+      android: {
+        title: 'Androidでの保存手順',
+        list: [
+          '上の「PDF／印刷で保存」ボタンを押す',
+          '上部のプリンター欄で「<strong>PDF形式で保存</strong>」を選ぶ',
+          '<strong>保存（ダウンロード）ボタン</strong>をタップして完了'
+        ],
+        hint: '保存したPDFは「ファイル」アプリや「ダウンロード」フォルダから開けます。'
+      },
+      macsafari: {
+        title: 'Mac（Safari）での保存手順',
+        list: [
+          '上の「PDF／印刷で保存」ボタンを押す',
+          'ダイアログ左下の「<strong>PDF</strong>」メニューをクリック',
+          '「<strong>PDFとして保存</strong>」を選んで完了'
+        ],
+        hint: ''
+      },
+      desktop: {
+        title: 'パソコンでの保存手順',
+        list: [
+          '上の「PDF／印刷で保存」ボタンを押す',
+          '送信先（プリンター欄）を「<strong>PDFに保存</strong>」に変更',
+          '「<strong>保存</strong>」を押して完了'
+        ],
+        hint: ''
+      }
+    };
+    const g = GUIDES[detectPdfPlatform()] || GUIDES.desktop;
+    const lis = g.list.map(t => `<li style="margin:.25rem 0;">${t}</li>`).join('');
+    box.innerHTML = `
+      <div style="max-width:560px;margin:0 auto;text-align:left;">
+        <div style="font-weight:600;color:#8a5a2c;margin-bottom:.35rem;">✦ ${g.title}</div>
+        <ol style="margin:.2rem 0 .4rem 1.4rem;padding:0;">${lis}</ol>
+        ${g.hint ? `<div style="font-size:12px;color:#a07a5a;margin-top:.3rem;">※ ${g.hint}</div>` : ''}
+        <div style="font-size:12px;color:#a07a5a;border-top:1px dashed #e6c8a8;margin-top:.6rem;padding-top:.5rem;">保存がうまくいかなくても大丈夫です。診断結果はこのブラウザ内に自動保存されており、次回このサイトを開いたときにいつでも見返せます。</div>
+      </div>
+    `;
+  }
+
   // ---------- 初期表示 ----------
   // 保存データがあれば続きから再開、なければTOPへ。
   // 初期画面は履歴に積まず、現在の履歴エントリに紐づける（起点）。
+  setupPdfGuide();
   suppressHistory = true;
   if (!restoreState()) showScreen('screen-top');
   suppressHistory = false;
