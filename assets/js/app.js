@@ -144,8 +144,10 @@
     const el = document.getElementById(id);
     if (el) {
       el.classList.add('active');
-      // 追従PDF保存ボタンはレポート画面のみ表示。画面を離れたら保存パネルも閉じる
+      // 追従PDF保存ボタンはレポート画面のみ、追従ナビはカテゴリ画面のみ表示。
+      // レポート画面を離れたら保存パネルも閉じる
       document.body.classList.toggle('report-active', id === 'screen-report');
+      document.body.classList.toggle('category-active', id === 'screen-category');
       if (id !== 'screen-report') {
         const sheet = document.getElementById('pdf-sheet');
         if (sheet) sheet.setAttribute('hidden', '');
@@ -178,6 +180,7 @@
           // 診断済みの保存結果をそのまま再表示（乱数の引き直しはしない）
           STATE.currentCat = cat;
           $('#category-content').innerHTML = STATE.results[cat].html;
+          updateCatNavLabels();
         } else {
           dest = 'screen-menu';
         }
@@ -575,7 +578,17 @@
     persistState();
 
     $('#category-content').innerHTML = html;
+    updateCatNavLabels();
     showScreen('screen-category');
+  }
+
+  // 現在のカテゴリに応じて「次へ」系ボタンの文言を更新（最終カテゴリでは総合レポートへ）
+  function updateCatNavLabels(){
+    const isLast = STATE.currentCat === 'cat7';
+    const fab = document.getElementById('btn-next-cat-fab');
+    if (fab) fab.textContent = isLast ? '総合レポートへ →' : '次のカテゴリへ →';
+    const bottom = document.getElementById('btn-next-cat');
+    if (bottom) bottom.textContent = isLast ? '総合レポートを見る' : '次のカテゴリへ進む';
   }
 
   // ---------- ズバリ言い当て診断 ビルダ ----------
@@ -3243,6 +3256,13 @@
   // ---------- 追従PDF保存ボタン（レポート画面右下） ----------
   // 直接印刷せず、機種別ガイド＋保存ボタンの位置へスクロールする。
   // ガイドを読んでから保存操作に入ってもらうため。
+  // カテゴリ画面の追従ナビ → 最下部の「次のカテゴリへ進む」と同じ動作
+  const catFab = document.getElementById('btn-next-cat-fab');
+  if (catFab) catFab.addEventListener('click', () => {
+    const b = document.getElementById('btn-next-cat');
+    if (b) b.click();
+  });
+
   // 追従ボタン → その場で保存パネル（機種別ガイド＋保存ボタン）を開く。
   // レポートは数十万pxの高さがありスクロール誘導は不確実なため、
   // どこにいても1タップで保存操作に入れるパネル方式にしている。

@@ -2166,6 +2166,29 @@ body.gate-locked{ overflow: hidden; }
 .pdf-fab:hover{ transform: translateY(-2px); box-shadow: 0 10px 24px rgba(110, 44, 66, 0.45); }
 body.report-active .pdf-fab{ display: block; }
 
+/* カテゴリ結果画面専用：追従「次のカテゴリへ」ナビ（.pdf-fab と同型） */
+.cat-fab{
+  display: none;
+  position: fixed;
+  right: 16px;
+  bottom: 18px;
+  z-index: 60;
+  background: linear-gradient(135deg, var(--c-rose) 0%, var(--c-wine) 100%);
+  color: #fff;
+  border: 0;
+  padding: 13px 22px;
+  border-radius: 999px;
+  font-family: var(--serif);
+  font-size: 14px;
+  letter-spacing: 0.12em;
+  font-weight: 500;
+  cursor: pointer;
+  box-shadow: 0 6px 18px rgba(110, 44, 66, 0.35);
+  transition: 0.3s;
+}
+.cat-fab:hover{ transform: translateY(-2px); box-shadow: 0 10px 24px rgba(110, 44, 66, 0.45); }
+body.category-active .cat-fab{ display: block; }
+
 /* 追従ボタンから開く保存パネル */
 .pdf-sheet{
   position: fixed;
@@ -2222,6 +2245,7 @@ body.report-active .pdf-fab{ display: block; }
   .pdf-note,
   .pdf-fab,
   .pdf-sheet,
+  .cat-fab,
   #btn-download-pdf {
     display: none !important;
   }
