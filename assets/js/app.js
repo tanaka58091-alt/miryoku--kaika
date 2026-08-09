@@ -897,6 +897,19 @@
   // ============================================================
   // ★ NEW: 悩み入力 → 処方箋（buildReport 末尾に挿入）
   // ============================================================
+  // 自由記述をテーマ辞書で解析（端末内のみ・外部送信なし）。一致した読み解きを最大2件返す
+  function analyzeWorryText(text){
+    if (!text || !D.WORRY_TEXT_THEMES) return [];
+    const hits = [];
+    for (const t of D.WORRY_TEXT_THEMES) {
+      try {
+        if (new RegExp(t.pat).test(text)) hits.push(t);
+      } catch (_) {}
+      if (hits.length >= 2) break;
+    }
+    return hits;
+  }
+
   function worryPrescription(c){
     const p = STATE.profile || {};
     if (!p.worryCat && !(p.worryText && p.worryText.length)) return '';
@@ -906,7 +919,29 @@
     const elem = z.element;
     const innateTxt = (w && w.innate && w.innate[elem]) || '';
     const acquiredTxt = (w && w.acquired && w.acquired[elem]) || '';
-    const actionsTxt = (w && w.actions) || '';
+
+    // ★ v=24: 具体アクションを カテゴリ×エレメント で個別化（旧8種→32種）＋数秘の進め方ヒント
+    const actionsTxt =
+      (D.WORRY_ACTIONS_ELEM && D.WORRY_ACTIONS_ELEM[p.worryCat] && D.WORRY_ACTIONS_ELEM[p.worryCat][elem]) ||
+      (w && w.actions) || '';
+    const lpHint = (D.WORRY_LP_HINT && (D.WORRY_LP_HINT[c.lifePath] ||
+      D.WORRY_LP_HINT[{11:2,22:4,33:6}[c.lifePath]])) || '';
+
+    // ★ v=24: 自由記述のテーマ解析（エコー表示だけでなく内容を読み解く）
+    const themes = analyzeWorryText(p.worryText);
+    const elemStyle = (D.WORRY_ELEM_STYLE && D.WORRY_ELEM_STYLE[elem]) || '';
+    let readingHtml = '';
+    if (p.worryText) {
+      const readings = themes.length
+        ? themes.map(t => `<p style="margin:.4rem 0;"><strong>▼ ${escapeHtml(t.label)}</strong><br>${escapeHtml(t.reading)}</p>`).join('')
+        : `<p style="margin:.4rem 0;">短い言葉の奥に、いくつもの想いが重なっているようです。全部を一度に解こうとせず、いちばん心を占めていることを1つだけ選んで、下のアクションから始めてください。</p>`;
+      readingHtml = `
+        <div class="block" style="background:#fdf6ec;border:1px solid #e6cfa8;padding:1rem 1.2rem;margin:1rem 0;">
+          <h3 style="margin:0 0 .4rem 0;">あなたの言葉から読み取れること</h3>
+          ${readings}
+          ${elemStyle ? `<p style="margin:.4rem 0 0 0;font-size:13px;color:#8a5a2c;">✦ ${escapeHtml(elemStyle)}</p>` : ''}
+        </div>`;
+    }
 
     const userVoiceHtml = p.worryText ? `
       <div class="block" style="background:#fffaf3;border-left:4px solid #c89c6a;padding:1rem 1.2rem;margin:1rem 0;">
@@ -914,7 +949,19 @@
         <p style="white-space:pre-wrap;line-height:1.8;">${escapeHtml(p.worryText)}</p>
       </div>` : '';
 
+    // ★ v=24: テーマ・カテゴリに応じた注意書き（健康・お金）
+    const themeLabels = themes.map(t => t.label);
+    const cautions = [];
+    if (D.WORRY_CAUTION) {
+      if (p.worryCat === 'health' || themeLabels.includes('体からのサイン')) cautions.push(D.WORRY_CAUTION.health);
+      if (p.worryCat === 'money' || themeLabels.includes('お金の不安')) cautions.push(D.WORRY_CAUTION.money);
+    }
+    const cautionHtml = cautions.length
+      ? `<div class="block" style="font-size:12px;color:#8a7a68;background:#faf6f0;border:1px dashed #d8c8b0;padding:.8rem 1rem;">${cautions.map(t => `<p style="margin:.2rem 0;">${escapeHtml(t)}</p>`).join('')}</div>`
+      : '';
+
     const labelTxt = (w && w.label) || '（カテゴリー未選択）';
+    const nameDisp = (p.sei || p.mei) ? `${p.sei}${p.mei}さん` : 'あなた';
 
     return `
       <div class="report-section worry-section">
@@ -928,18 +975,22 @@
 
         ${intro ? `<div class="block"><h3>このテーマの読み解き</h3><p>${escapeHtml(intro)}</p></div>` : ''}
 
+        ${userVoiceHtml}
+
+        ${readingHtml}
+
         ${innateTxt ? `<div class="block"><h3>あなたが本来持っている力（先天）</h3><p>${escapeHtml(innateTxt)}</p></div>` : ''}
 
         ${acquiredTxt ? `<div class="block"><h3>これから整えていく方向（後天）</h3><p>${escapeHtml(acquiredTxt)}</p></div>` : ''}
 
-        ${actionsTxt ? `<div class="block"><h3>今日からできる具体アクション</h3><p>${escapeHtml(actionsTxt)}</p></div>` : ''}
-
-        ${userVoiceHtml}
+        ${actionsTxt ? `<div class="block"><h3>今日からできる具体アクション</h3><p>${escapeHtml(actionsTxt)}</p>${lpHint ? `<p style="margin-top:.6rem;padding-top:.5rem;border-top:1px dashed #e6cfa8;font-size:13px;color:#8a5a2c;">✦ 進め方のコツ：${escapeHtml(lpHint)}</p>` : ''}</div>` : ''}
 
         <div class="block block-final">
           <h3>このお悩みに対する、占術からのひと言</h3>
-          <p>悩みの形は人それぞれですが、占術的に見ると「今あなたが感じている苦しさ」は、本来の${escapeHtml(elem)}の質が出しきれずに詰まっているサインです。${escapeHtml(z.name)}・${escapeHtml(elem)}のあなたが本来の流れに戻れば、この悩みは自然と形を変えます。今日の小さな一歩から始めてください。</p>
+          <p>悩みの形は人それぞれですが、占術的に見ると「今${escapeHtml(nameDisp)}が感じている苦しさ」は、本来の${escapeHtml(elem)}の質が出しきれずに詰まっているサインです。${escapeHtml(z.name)}・${escapeHtml(elem)}・数秘${c.lifePath}という組み合わせを持つ${escapeHtml(nameDisp)}が本来の流れに戻れば、この悩みは自然と形を変えます。今日の小さな一歩から始めてください。</p>
         </div>
+
+        ${cautionHtml}
       </div>
     `;
   }
