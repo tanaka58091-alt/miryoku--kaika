@@ -25,18 +25,35 @@
     document.body.classList.add('gate-locked');
     setTimeout(() => { try { input && input.focus(); } catch(_){} }, 80);
 
+    // 全角英数（ｍｉｒｙｏｋｕ２０２６等）・大文字・前後や途中の空白を吸収して比較する。
+    // スマホのかな入力のまま打っても正解が弾かれないように。
+    const normalize = (s) => {
+      let t = String(s || '');
+      try { t = t.normalize('NFKC'); } catch (_) {}
+      return t.replace(/\s+/g, '').toLowerCase();
+    };
+
+    // 表示／非表示トグル：伏せ字のままではタイプミスに気づけないため
+    const toggle = document.getElementById('gate-toggle');
+    if (toggle) toggle.addEventListener('click', () => {
+      const showing = input.type === 'text';
+      input.type = showing ? 'password' : 'text';
+      toggle.textContent = showing ? '表示' : '隠す';
+      input.focus();
+    });
+
     form.addEventListener('submit', (e) => {
       e.preventDefault();
-      const v = (input.value || '').trim().toLowerCase();
-      if (v === GATE_PASSWORD.toLowerCase()) {
+      if (normalize(input.value) === normalize(GATE_PASSWORD)) {
         try { localStorage.setItem(GATE_STORAGE_KEY, '1'); } catch(_){}
         overlay.setAttribute('hidden','');
         document.body.classList.remove('gate-locked');
         err.setAttribute('hidden','');
       } else {
+        // 入力は消さずに残す（見直して修正できるように）
         err.removeAttribute('hidden');
-        input.value = '';
         input.focus();
+        try { input.select(); } catch(_){}
       }
     });
   }

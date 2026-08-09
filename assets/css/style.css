@@ -1758,6 +1758,28 @@ body.gate-locked{ overflow: hidden; }
   gap: 12px;
   margin-bottom: 14px;
 }
+.gate-input-row{
+  position: relative;
+  display: block;
+}
+.gate-input-row input{
+  width: 100%;
+  padding-right: 62px;
+  box-sizing: border-box;
+}
+.gate-toggle{
+  position: absolute;
+  right: 10px;
+  top: 50%;
+  transform: translateY(-50%);
+  background: none;
+  border: 1px solid rgba(213,140,160,0.5);
+  color: var(--c-rose-deep);
+  border-radius: 999px;
+  padding: 4px 10px;
+  font-size: 11px;
+  cursor: pointer;
+}
 .gate-form input{
   padding: 14px 18px;
   font-size: 15px;
