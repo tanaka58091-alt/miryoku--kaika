@@ -3875,6 +3875,36 @@
     }
   });
 
+  /* ============================================================
+     文字サイズの切替（v=39）
+     主な利用者が40〜60代のため、本文13px前後はスマホで読みづらい。
+     標準／大きめ／特大 の3段階を用意し、端末内に記憶する。
+     ============================================================ */
+  const TEXT_SIZE_KEY = 'miryoku_textsize_v1';
+  const TEXT_SIZES = [
+    { key: '',        mark: '標準' },
+    { key: 'text-lg', mark: '大'   },
+    { key: 'text-xl', mark: '特大' }
+  ];
+  function applyTextSize(idx){
+    const i = Math.max(0, Math.min(TEXT_SIZES.length - 1, idx | 0));
+    document.body.classList.remove('text-lg', 'text-xl');
+    if (TEXT_SIZES[i].key) document.body.classList.add(TEXT_SIZES[i].key);
+    const mark = document.getElementById('text-size-mark');
+    if (mark) mark.textContent = TEXT_SIZES[i].mark;
+    const btn = document.getElementById('btn-text-size');
+    if (btn) btn.setAttribute('aria-label', `文字の大きさ：現在「${TEXT_SIZES[i].mark}」。押すと切り替わります`);
+    try { localStorage.setItem(TEXT_SIZE_KEY, String(i)); } catch (_) {}
+    return i;
+  }
+  let textSizeIdx = 0;
+  try { textSizeIdx = parseInt(localStorage.getItem(TEXT_SIZE_KEY), 10) || 0; } catch (_) {}
+  applyTextSize(textSizeIdx);
+  const btnTextSize = $('#btn-text-size');
+  if (btnTextSize) btnTextSize.addEventListener('click', () => {
+    textSizeIdx = applyTextSize((textSizeIdx + 1) % TEXT_SIZES.length);
+  });
+
   // ---------- 30秒サマリー（単独表示） ----------
   // 統合分析はレポートの中にしか無く、最も価値のある章が埋もれていたため、
   // 診断メニューの先頭から1タップで見られるようにする（v=32）

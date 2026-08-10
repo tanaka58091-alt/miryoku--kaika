@@ -2292,16 +2292,28 @@ body.category-active .cat-fab{ display: block; }
 }
 .nav-btn:hover::after{ left:22%; right:22%; opacity:.75; }
 
-@media (max-width: 720px){
-  .site-header{ padding: 11px 12px; }
-  .brand-mark{ font-size: 17px; }
-  .brand-name{ font-size: 13px; letter-spacing: 0.08em; }
-  .site-nav{ gap: 0; }
-  .nav-btn{ padding: 6px 7px; font-size: 11.5px; letter-spacing: 0.02em; }
+/* ブランド部分もTOPへのボタンにする */
+.brand{
+  background: none; border: 0; padding: 0; cursor: pointer;
+  font-family: var(--serif); align-items: center;
 }
-@media (max-width: 380px){
-  .brand-name{ font-size: 12px; }
+.nav-short{ display: none; }
+
+@media (max-width: 720px){
+  .site-header{ padding: 11px 10px; }
+  .brand-mark{ font-size: 17px; }
+  .brand-name{ font-size: 12.5px; letter-spacing: 0.04em; }
+  .site-nav{ gap: 0; }
+  .nav-btn{ padding: 6px 6px; font-size: 11.5px; letter-spacing: 0.01em; }
+  /* ブランド名がTOPボタンを兼ねるので、狭い画面では重複を外す */
+  .nav-top{ display: none; }
+  .nav-full{ display: none; }
+  .nav-short{ display: inline; }
+}
+@media (max-width: 390px){
+  .brand-name{ font-size: 11.5px; }
   .nav-btn{ padding: 6px 5px; font-size: 11px; }
+  .text-size-btn{ padding: 5px 7px !important; }
 }
 
 /* ---------- Hero：余白を締め、モバイルの改行崩れを解消 ---------- */
@@ -2874,6 +2886,65 @@ body.category-active .cat-fab{ display: block; }
   .rep-title{ font-size: 14.5px; }
 }
 
+/* ============================================================
+   文字サイズ切替（v=39）
+   主な読み手が40〜60代のため、本文を2段階まで拡大できるようにする。
+   読み物の本体（p / li / .rich）だけを対象にし、
+   見出し・ボタン・バッジは触らないのでレイアウトは崩れない。
+   ============================================================ */
+.text-size-btn{
+  border: 1px solid rgba(213,106,126,0.4) !important;
+  border-radius: 999px;
+  padding: 5px 11px !important;
+  margin-left: 4px;
+  line-height: 1.2;
+}
+.text-size-btn sup{
+  font-size: 9px; margin-left: 3px; color: var(--c-gold-deep); vertical-align: super;
+}
+
+body.text-lg .container p,
+body.text-lg .container li,
+body.text-lg .container .rich,
+body.text-lg .report p,
+body.text-lg .report li{
+  font-size: 15.5px !important;
+  line-height: 2.02 !important;
+}
+body.text-xl .container p,
+body.text-xl .container li,
+body.text-xl .container .rich,
+body.text-xl .report p,
+body.text-xl .report li{
+  font-size: 17.5px !important;
+  line-height: 2.08 !important;
+}
+
+/* 補足・注記は本文よりひとまわり小さいままにして階層を保つ */
+body.text-lg .fortune-note,
+body.text-lg .integ-method,
+body.text-lg .cmp-metric-note,
+body.text-lg .hour-hint,
+body.text-lg .cat-index-note,
+body.text-lg .fb-note{ font-size: 13.5px !important; }
+body.text-xl .fortune-note,
+body.text-xl .integ-method,
+body.text-xl .cmp-metric-note,
+body.text-xl .hour-hint,
+body.text-xl .cat-index-note,
+body.text-xl .fb-note{ font-size: 15px !important; }
+
+/* 拡大時は主要見出しも少しだけ上げる */
+body.text-lg .integ-h3{ font-size: 17px; }
+body.text-xl .integ-h3{ font-size: 18.5px; }
+body.text-lg .sum-hero{ font-size: clamp(21px, 5vw, 29px); }
+body.text-xl .sum-hero{ font-size: clamp(23px, 5.6vw, 31px); }
+
+@media (max-width: 720px){
+  .text-size-btn{ padding: 5px 8px !important; margin-left: 2px; }
+  .text-size-btn sup{ font-size: 8.5px; }
+}
+
 .integ-method{
   margin-top: 22px; padding: 13px 15px; border-radius: 10px;
   background: #faf7f2; border: 1px dashed rgba(200,155,106,0.55);
@@ -2924,6 +2995,7 @@ body.category-active .cat-fab{ display: block; }
   .cat-index,
   .rep-open,
   .report-detail-lead,
+  .text-size-btn,
   #btn-download-pdf {
     display: none !important;
   }

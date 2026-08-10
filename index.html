@@ -6,11 +6,11 @@
 <title>多角的占い診断 ― 30以上の占術で読み解く、あなたの取扱説明書</title>
 <meta name="description" content="西洋占星術・四柱推命・数秘術ほか30以上の占術であなたの本来の魅力と運命を深く読み解きます。" />
 <meta name="robots" content="noindex,nofollow" />
-<link rel="stylesheet" href="assets/css/style.css?v=38" />
+<link rel="stylesheet" href="assets/css/style.css?v=40" />
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,400;0,500;0,600;1,400;1,500&family=Noto+Serif+JP:wght@400;500;600;700&family=Klee+One:wght@400;600&family=Zen+Kurenaido&family=Yusei+Magic&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="assets/css/yuru.css?v=38">
+<link rel="stylesheet" href="assets/css/yuru.css?v=40">
 </head>
 <body>
 
@@ -35,15 +35,16 @@
 </div>
 
 <header class="site-header">
-  <div class="brand">
-    <div class="brand-mark">☾</div>
-    <div class="brand-name">多角的占い診断</div>
-  </div>
+  <button class="brand" data-go="screen-top" type="button" aria-label="TOPへ戻る">
+    <span class="brand-mark">☾</span>
+    <span class="brand-name">多角的占い診断</span>
+  </button>
   <nav class="site-nav">
-    <button class="nav-btn" data-go="screen-top">TOP</button>
+    <button class="nav-btn nav-top" data-go="screen-top">TOP</button>
     <button class="nav-btn" data-go="screen-input">入力</button>
     <button class="nav-btn" data-go="screen-menu">診断</button>
-    <button class="nav-btn" data-go="screen-faq">よくあるご質問</button>
+    <button class="nav-btn" data-go="screen-faq"><span class="nav-full">よくあるご質問</span><span class="nav-short">質問</span></button>
+    <button class="nav-btn text-size-btn" id="btn-text-size" aria-label="文字の大きさを変える" title="文字の大きさを変える">あ<sup id="text-size-mark">標準</sup></button>
   </nav>
 </header>
 
@@ -548,14 +549,14 @@
   </div>
 </div>
 
-<script src="assets/js/ephemeris.js?v=38"></script>
-<script src="assets/js/seimei-strokes.js?v=38"></script>
-<script src="assets/js/calc.js?v=38"></script>
-<script src="assets/js/content.js?v=38"></script>
+<script src="assets/js/ephemeris.js?v=40"></script>
+<script src="assets/js/seimei-strokes.js?v=40"></script>
+<script src="assets/js/calc.js?v=40"></script>
+<script src="assets/js/content.js?v=40"></script>
 <script src="assets/js/animal60.js?v=18"></script>
-<script src="assets/js/photo-analysis.js?v=38"></script>
-<script src="assets/js/local-synthesis.js?v=38"></script>
-<script src="assets/js/app.js?v=38"></script>
+<script src="assets/js/photo-analysis.js?v=40"></script>
+<script src="assets/js/local-synthesis.js?v=40"></script>
+<script src="assets/js/app.js?v=40"></script>
 
 </body>
 </html>
