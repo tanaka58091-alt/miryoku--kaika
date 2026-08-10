@@ -1,9 +1,9 @@
 /* ============================================================
-   local-synthesis.js — AI占い師「美瑛」のローカル生成
-   ・Claude API を呼ばず、calc + content DB だけで合成
-   ・占術結果 × 悩みカテゴリ × エレメント を組み合わせて
-     2800〜3500字程度の "その人だけの" 直筆診断HTMLを返す
-   ・完全ゼロ課金。常にオフラインでも動作
+   local-synthesis.js — 占術統合エンジン（端末内合成）
+   ・生成AIは使用しない。calc（確定した占術結果）+ content DB を
+     決定論的に組み合わせて総合鑑定HTMLを返す
+   ・占術結果 × 悩みカテゴリ × エレメント で 2800〜3500字程度
+   ・完全ゼロ課金・外部通信なし・同じ入力なら常に同じ出力
    ============================================================ */
 (function (global) {
   'use strict';
@@ -140,7 +140,7 @@
 
     // ===== ヘッダ =====
     lines.push(`<div class="block" style="text-align:center;margin-bottom:.8rem;">
-      <div style="font-size:11px;letter-spacing:.4em;color:#a08060;margin-bottom:.4rem;">─ 美瑛からの直筆診断 ─</div>
+      <div style="font-size:11px;letter-spacing:.4em;color:#a08060;margin-bottom:.4rem;">─ 全占術を結び直した総合鑑定 ─</div>
       <div style="font-size:13px;color:#8a6850;">${esc(todayStr)}　${esc(fullName)} 様へ</div>
     </div>`);
 
@@ -260,8 +260,7 @@
     const closing = essence.youthThought
       ? `あなたが日々「${esc(essence.youthThought)}」と自分に語りかけられたとき、運命は静かに、しかし確実に動き始めます。`
       : `あなたが自分の本質を信じられたとき、運命は静かに動き始めます。`;
-    lines.push(`<p style="margin-top:1.2rem;">${esc(fullName)}さま。占いは「未来を当てる」ものではなく、「今のあなたを映す鏡」です。${closing}今日この診断を受け取られたこと自体が、もうあなたの転換点の始まりです。</p>`);
-    lines.push(`<p style="text-align:right;color:#9a7860;margin-top:1rem;">— 美瑛 拝 —</p>`);
+    lines.push(`<p style="margin-top:1.2rem;">${esc(fullName)}さま。占いは「未来を当てる」ものではなく、「今のあなたを映す鏡」です。${closing}ここに書かれたことは決めつけではなく、あなたが自分を考えるための材料としてお使いください。</p>`);
 
     return lines.join('\n');
   }

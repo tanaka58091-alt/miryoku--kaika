@@ -327,10 +327,10 @@
   // ε = 黄道傾斜角(≒23.44°), φ = 観測地緯度, LST = 地方恒星時
   // lat/lon 未指定時は東京(35.68°N, 139.69°E)。hour未指定時は略式フォールバック。
   function calcAscendant(y, m, d, hour, lat, lon) {
-    if (hour === null || hour === undefined || hour === '') {
-      const sun = calcSunSign(m, d);
-      return mod(sun + (d % 12), 12);
-    }
+    // 出生時刻が無ければアセンダントは原理的に決まらない。
+    // 以前は sun + (d % 12) という天文的根拠のない擬似値を返していたが、
+    // 本物の算出値と区別がつかず誤解を招くため null を返す（v=26）。
+    if (hour === null || hour === undefined || hour === '') return null;
     const h = parseFloat(hour);
     const latitude = (lat === undefined || lat === null || isNaN(lat)) ? 35.68 : lat;
     const longitude = (lon === undefined || lon === null || isNaN(lon)) ? 139.69 : lon;
@@ -541,27 +541,38 @@
   // ---------- 15. 姓名判断（漢字画数辞書ベース） ----------
   // SeimeiStrokes 辞書（約250字、新字体標準）で姓名でよく使う漢字を引く。
   // 辞書になければ漢字=平均10画、ひらがな・カタカナは3画にフォールバック。
-  function strokesOf(str) {
+  // 画数集計。辞書に無い漢字を平均値で代用した場合は _lastEstimated に記録し、
+  // 「推定を含む」ことを画面で明示できるようにする（v=26）。
+  let _lastEstimated = [];
+  function strokesOf(str, track) {
     if (!str) return 0;
     let n = 0;
+    let prev = 0; // 「々」用に直前の文字の画数を保持
     const dict = global.SeimeiStrokes;
     for (const ch of str) {
       const code = ch.charCodeAt(0);
-      if (dict && dict.has(ch)) {
-        n += dict.get(ch);
+      let s;
+      if (ch === '々' || ch === 'ゝ' || ch === 'ヽ') {
+        s = prev;    // 繰り返し記号は直前の文字と同じ画数
+      } else if (dict && dict.has(ch)) {
+        s = dict.get(ch);
       } else if (code >= 0x3040 && code <= 0x30FF) {
-        n += 3;        // かな（平均）
+        s = 3;       // かな（平均）
       } else if (code >= 0x4E00 && code <= 0x9FFF) {
-        n += 10;       // 漢字（辞書になければ平均）
+        s = 10;      // 漢字（辞書になければ平均）
+        if (track) _lastEstimated.push(ch);
       } else {
-        n += 4;
+        s = 4;
       }
+      n += s;
+      prev = s;
     }
     return n;
   }
   function calcSeimei(sei, mei) {
-    const s = strokesOf(sei);
-    const m = strokesOf(mei);
+    _lastEstimated = [];
+    const s = strokesOf(sei, true);
+    const m = strokesOf(mei, true);
     // 霊数：1字姓 / 1字名 のとき1を補う（熊崎式の伝統）
     const seiLen = sei ? [...sei].length : 0;
     const meiLen = mei ? [...mei].length : 0;
@@ -582,7 +593,9 @@
       jinkaku: jinkaku,
       chikaku: chikaku,
       gaikaku: gaikaku,
-      sokaku: sokaku
+      sokaku: sokaku,
+      // 辞書外の漢字を平均10画で代用した場合、その文字を返す（画面で注記するため）
+      estimatedChars: _lastEstimated.slice()
     };
   }
   // 姓名判断 結果カテゴリ（総格を元に5分類）
@@ -673,6 +686,8 @@
   // ---------- 22. 西洋占星術 トランジット詳細 ----------
   // 今日の太陽・月が出生図の何ハウスを通過しているか
   function calcTransitHouse(natalAsc) {
+    // ASC 未確定（出生時刻なし）ならハウス通過は算出しない
+    if (natalAsc === null || natalAsc === undefined) return null;
     const today = new Date();
     const tSun = calcSunSign(today.getMonth() + 1, today.getDate());
     const tMoon = calcMoonSign(today.getFullYear(), today.getMonth() + 1, today.getDate());

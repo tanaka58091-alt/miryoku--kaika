@@ -3,14 +3,14 @@
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-<title>魅力開花診断 ― 大人女性のための多角的占い</title>
+<title>多角的占い診断 ― 30以上の占術で読み解く、あなたの取扱説明書</title>
 <meta name="description" content="西洋占星術・四柱推命・数秘術ほか30以上の占術であなたの本来の魅力と運命を深く読み解きます。" />
 <meta name="robots" content="noindex,nofollow" />
-<link rel="stylesheet" href="assets/css/style.css?v=25" />
+<link rel="stylesheet" href="assets/css/style.css?v=31" />
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,400;0,500;0,600;1,400;1,500&family=Noto+Serif+JP:wght@400;500;600;700&family=Klee+One:wght@400;600&family=Zen+Kurenaido&family=Yusei+Magic&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="assets/css/yuru.css?v=2">
+<link rel="stylesheet" href="assets/css/yuru.css?v=31">
 </head>
 <body>
 
@@ -18,7 +18,7 @@
 <div id="gate-overlay" class="gate-overlay" hidden>
   <div class="gate-card">
     <div class="gate-deco">☾  Beauty Course Members Only  ☾</div>
-    <h1 class="gate-title">魅力開花診断</h1>
+    <h1 class="gate-title">多角的占い診断</h1>
     <p class="gate-sub">受講生限定の診断サイトです</p>
     <p class="gate-lead">講師よりお伝えしている <strong>合い言葉</strong> をご入力ください。</p>
     <form id="gate-form" class="gate-form" autocomplete="off">
@@ -37,7 +37,7 @@
 <header class="site-header">
   <div class="brand">
     <div class="brand-mark">☾</div>
-    <div class="brand-name">魅力開花診断</div>
+    <div class="brand-name">多角的占い診断</div>
   </div>
   <nav class="site-nav">
     <button class="nav-btn" data-go="screen-top">TOP</button>
@@ -263,6 +263,8 @@
 
       <div class="profile-summary" id="profile-summary"></div>
 
+      <div id="history-block"></div>
+
       <div class="menu-grid">
 
         <div class="menu-card" data-cat="cat1">
@@ -354,6 +356,13 @@
 
       </div>
 
+      <div class="compat-cta">
+        <div class="compat-cta-icon">💞</div>
+        <h3>2人の関係を知る</h3>
+        <p>気になるお相手の生年月日を入れると、あなたの結果と突き合わせて「似ているところ・違うところ・自然に噛み合う部分・ぶつかりやすい部分・会話のコツ」をお伝えします。相性の点数ではなく、<strong>関係を理解するための材料</strong>です。</p>
+        <button class="btn-outline" data-go="screen-compat">相性を見てみる</button>
+      </div>
+
       <div class="report-cta">
         <h3>総合診断レポート — あなたの人生の取扱説明書</h3>
         <p>診断が一通り終わったら、本質・表面・心の歪み・人生ステージ・美の才能・開運行動・人生ロードマップをまとめた1冊のPDFレポートをお持ち帰りいただけます。あなたが本当に輝く生き方を、1冊の本に。</p>
@@ -371,6 +380,57 @@
         <button class="btn-secondary" data-go="screen-menu">メニューへ戻る</button>
         <button class="btn-primary no-icon" id="btn-next-cat">次のカテゴリへ進む</button>
       </div>
+    </div>
+  </section>
+
+  <!-- ===================== 相性診断 ===================== -->
+  <section class="screen" id="screen-compat">
+    <div class="container">
+      <button class="btn-back" data-go="screen-menu">← 診断メニューへ戻る</button>
+      <h2 class="section-title">2人の関係を知る</h2>
+      <p class="section-lead">お相手の生年月日から占術を計算し、あなたの結果と突き合わせます。点数ではなく「何が同じで、何が違って、どう噛み合うか」をお伝えします。<br>お相手の情報もこの端末内だけで処理され、保存も送信もされません。</p>
+
+      <form id="form-partner" class="form-card" autocomplete="off">
+        <div class="form-row">
+          <label>お相手のお名前<span class="opt">任意</span></label>
+          <div class="form-inline">
+            <input type="text" id="pt-sei" placeholder="姓（例：山田）" />
+            <input type="text" id="pt-mei" placeholder="名（例：太郎）" />
+          </div>
+        </div>
+        <div class="form-row">
+          <label>お相手の生年月日<span class="req">必須</span></label>
+          <div class="form-inline">
+            <input type="number" id="pt-year"  min="1920" max="2025" placeholder="西暦" required />
+            <span>年</span>
+            <input type="number" id="pt-month" min="1" max="12" placeholder="月" required />
+            <span>月</span>
+            <input type="number" id="pt-day"   min="1" max="31" placeholder="日" required />
+            <span>日</span>
+          </div>
+        </div>
+        <div class="form-row">
+          <label>お相手の生まれた時刻<span class="opt">任意・分かれば精度が上がります</span></label>
+          <div class="form-inline">
+            <input type="number" id="pt-hour" min="0" max="23" placeholder="時" />
+            <span>時頃</span>
+          </div>
+        </div>
+        <div class="form-row">
+          <label>お相手との関係<span class="opt">任意</span></label>
+          <div class="radio-group" id="pt-relkind">
+            <label><input type="radio" name="pt-rel" value="partner" checked /> パートナー・恋人</label>
+            <label><input type="radio" name="pt-rel" value="family" /> 家族</label>
+            <label><input type="radio" name="pt-rel" value="work" /> 仕事関係</label>
+            <label><input type="radio" name="pt-rel" value="friend" /> 友人</label>
+          </div>
+        </div>
+        <div class="form-actions">
+          <button type="submit" class="btn-primary btn-large">2人の関係を見る</button>
+        </div>
+      </form>
+
+      <div id="compat-result"></div>
     </div>
   </section>
 
@@ -402,7 +462,11 @@
         </details>
         <details class="faq-item">
           <summary>再診断はできますか？</summary>
-          <p>はい、何度でも可能です。タロット・オラクル・易・ルーン・おみくじなどはカードを引き直すたびに結果が変わります。</p>
+          <p>はい、何度でも可能です。なお本診断は<strong>同じ入力なら毎回同じ結果</strong>になるよう設計しています。タロットも、その方の生年月日から一意に決まる引き方をしているため、開き直すたびに変わることはありません。結果を変えたい場合は、生年月日・時刻・お名前・ご相談テーマなど入力内容を変えてお試しください。</p>
+        </details>
+        <details class="faq-item">
+          <summary>この診断にAIは使われていますか？</summary>
+          <p>いいえ。文章生成AIは使用していません。生年月日などから<strong>各占術の計算をこの端末内で行い</strong>、その確定結果に対応する解説文を占術データベースから組み立ててお届けしています。そのため、あなたの情報が外部に送られることはなく、同じ入力であればいつでも同じ結果が再現されます。</p>
         </details>
         <details class="faq-item">
           <summary>途中でページを閉じたり、更新してしまったら？</summary>
@@ -443,7 +507,7 @@
 </div>
 
 <footer class="site-footer">
-  <small>© 魅力開花診断 / for adult women who bloom</small>
+  <small>© 多角的占い診断 / for the woman who blooms again</small>
 </footer>
 
 <div class="loading" id="loading" hidden>
@@ -453,15 +517,14 @@
   </div>
 </div>
 
-<script src="assets/js/ephemeris.js?v=18"></script>
-<script src="assets/js/seimei-strokes.js?v=18"></script>
-<script src="assets/js/calc.js?v=18"></script>
-<script src="assets/js/content.js?v=24"></script>
+<script src="assets/js/ephemeris.js?v=31"></script>
+<script src="assets/js/seimei-strokes.js?v=31"></script>
+<script src="assets/js/calc.js?v=31"></script>
+<script src="assets/js/content.js?v=31"></script>
 <script src="assets/js/animal60.js?v=18"></script>
-<script src="assets/js/photo-analysis.js?v=18"></script>
-<script src="assets/js/local-synthesis.js?v=18"></script>
-<script src="assets/js/api.js?v=18"></script>
-<script src="assets/js/app.js?v=25"></script>
+<script src="assets/js/photo-analysis.js?v=31"></script>
+<script src="assets/js/local-synthesis.js?v=31"></script>
+<script src="assets/js/app.js?v=31"></script>
 
 </body>
 </html>
