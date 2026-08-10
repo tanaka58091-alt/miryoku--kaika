@@ -64,8 +64,10 @@ h1, h2, h3, h4{
               0 2px 6px rgba(220, 150, 150, 0.04) !important;
 }
 
-/* ===== ボタンを手書き感のあるピル形に ===== */
-button,
+/* ===== ボタンを手書き感のあるピル形に =====
+   ただしカード型のボタン（.quick-card 等）はピル形にすると
+   角丸が過剰になって中身が欠けるため除外する。 */
+button:not(.card-btn),
 .btn,
 .gate-btn{
   font-family: var(--font-yuru-jp) !important;
@@ -73,8 +75,12 @@ button,
   letter-spacing: 0.1em;
   font-weight: 600 !important;
 }
+button.card-btn{
+  font-family: var(--font-yuru-jp) !important;
+  letter-spacing: 0.08em;
+}
 
-button:hover,
+button:not(.card-btn):hover,
 .btn:hover,
 .gate-btn:hover{
   transform: translateY(-1px) rotate(-0.3deg);

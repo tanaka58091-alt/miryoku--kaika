@@ -6,11 +6,11 @@
 <title>多角的占い診断 ― 30以上の占術で読み解く、あなたの取扱説明書</title>
 <meta name="description" content="西洋占星術・四柱推命・数秘術ほか30以上の占術であなたの本来の魅力と運命を深く読み解きます。" />
 <meta name="robots" content="noindex,nofollow" />
-<link rel="stylesheet" href="assets/css/style.css?v=31" />
+<link rel="stylesheet" href="assets/css/style.css?v=38" />
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,400;0,500;0,600;1,400;1,500&family=Noto+Serif+JP:wght@400;500;600;700&family=Klee+One:wght@400;600&family=Zen+Kurenaido&family=Yusei+Magic&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="assets/css/yuru.css?v=31">
+<link rel="stylesheet" href="assets/css/yuru.css?v=38">
 </head>
 <body>
 
@@ -133,11 +133,23 @@
           </div>
         </div>
         <div class="form-row">
-          <label>生まれた時刻<span class="opt">任意・アセンダント診断に使用</span></label>
+          <label>生まれた時刻<span class="opt">任意</span></label>
           <div class="form-inline">
             <input type="number" id="in-hour" min="0" max="23" placeholder="時" />
             <span>時頃</span>
           </div>
+          <div class="hour-quick">
+            <span class="hour-quick-label">だいたいで大丈夫です</span>
+            <button type="button" data-hour="6">朝（6時ごろ）</button>
+            <button type="button" data-hour="9">午前（9時ごろ）</button>
+            <button type="button" data-hour="12">お昼（12時ごろ）</button>
+            <button type="button" data-hour="15">午後（15時ごろ）</button>
+            <button type="button" data-hour="18">夕方（18時ごろ）</button>
+            <button type="button" data-hour="21">夜（21時ごろ）</button>
+            <button type="button" data-hour="0">深夜（0時ごろ）</button>
+            <button type="button" data-hour="">わからない</button>
+          </div>
+          <p class="hour-hint">分かると<strong>月星座とアセンダント</strong>まで読めます。母子手帳やご家族の記憶で分かることも。2時間ほどの誤差なら、読みの方向性は大きく変わりません。</p>
         </div>
         <div class="form-row">
           <label>生まれた都道府県<span class="opt">任意・アセンダント精度向上</span></label>
@@ -265,6 +277,13 @@
 
       <div id="history-block"></div>
 
+      <button type="button" class="quick-card card-btn" id="btn-quick-view">
+        <div class="quick-badge">まずはここから</div>
+        <div class="quick-title">30秒で分かる、あなた</div>
+        <div class="quick-desc">30以上の占術を突き合わせて、<strong>複数の占術が共通して示す傾向</strong>と<strong>あなたの中の二面性</strong>を先にお伝えします。1分もかかりません。</div>
+        <div class="quick-go">結果を見る →</div>
+      </button>
+
       <div class="menu-grid">
 
         <div class="menu-card" data-cat="cat1">
@@ -379,6 +398,18 @@
       <div class="form-actions">
         <button class="btn-secondary" data-go="screen-menu">メニューへ戻る</button>
         <button class="btn-primary no-icon" id="btn-next-cat">次のカテゴリへ進む</button>
+      </div>
+    </div>
+  </section>
+
+  <!-- ===================== 30秒サマリー（単独表示） ===================== -->
+  <section class="screen" id="screen-quick">
+    <div class="container">
+      <button class="btn-back" data-go="screen-menu">← 診断メニューへ戻る</button>
+      <div id="quick-content"></div>
+      <div class="quick-next">
+        <p>ここから先は、占術ごとの詳しい読み解きです。気になる章から進めてください。</p>
+        <button class="btn-primary btn-large" data-go="screen-menu">7つの詳細診断へ進む</button>
       </div>
     </div>
   </section>
@@ -517,14 +548,14 @@
   </div>
 </div>
 
-<script src="assets/js/ephemeris.js?v=31"></script>
-<script src="assets/js/seimei-strokes.js?v=31"></script>
-<script src="assets/js/calc.js?v=31"></script>
-<script src="assets/js/content.js?v=31"></script>
+<script src="assets/js/ephemeris.js?v=38"></script>
+<script src="assets/js/seimei-strokes.js?v=38"></script>
+<script src="assets/js/calc.js?v=38"></script>
+<script src="assets/js/content.js?v=38"></script>
 <script src="assets/js/animal60.js?v=18"></script>
-<script src="assets/js/photo-analysis.js?v=31"></script>
-<script src="assets/js/local-synthesis.js?v=31"></script>
-<script src="assets/js/app.js?v=31"></script>
+<script src="assets/js/photo-analysis.js?v=38"></script>
+<script src="assets/js/local-synthesis.js?v=38"></script>
+<script src="assets/js/app.js?v=38"></script>
 
 </body>
 </html>

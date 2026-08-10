@@ -53,8 +53,12 @@
   // ----------------------------------------------------------------
   // 本体：合成診断HTMLを返す（Promise風だが同期処理）
   // ----------------------------------------------------------------
-  function generate(profile, calc){
+  // g = 統合分析の結果（buildIntegration の戻り値）。渡されると、
+  //     エレメント4分岐だけに頼らず「何占術が一致したか」を織り込んだ文章になる。
+  function generate(profile, calc, g){
     const D = global.CONTENT_DATA || {};
+    const TAGS = D.TAG_DEFS || {};
+    const tagLabel = (t) => (TAGS[t] && TAGS[t].label) || '';
     const Z = D.ZODIAC || [];
     const NUM = D.NUMEROLOGY || {};
     const SIX = D.SIX_STAR || [];
@@ -147,6 +151,14 @@
     // ===== (a) この方の核 =====
     lines.push(`<h3>① あなたの核 ─ 生まれ持った輪郭</h3>`);
     lines.push(`<p>${esc(fullName)}さま。あなたは西洋占星術では<strong>${esc(z.name)}</strong>（${esc(elem)}のエレメント）、数秘術では<strong>ライフパス${calc.lifePath}「${esc(lp.title||'')}」</strong>、そして算命学では<strong>${esc(sanmei.name||'')}</strong>として生まれていらっしゃいます。</p>`);
+    // ★ タグ統合：どの傾向が何占術で一致しているかを本文に織り込む
+    if (g && g.top && g.top.length){
+      const t1 = g.top[0];
+      // ラベルを個別にエスケープしてから連結する（連結後に esc すると
+      // 区切りの <strong> まで文字列として出てしまうため）
+      const others = g.top.slice(1).map(t => esc(tagLabel(t.tag))).filter(Boolean);
+      lines.push(`<p>これら${g.usedSources.length}種類の占術を並べて突き合わせると、ばらばらに見える結果の奥に一本の線が通っているのが分かります。あなたの場合、それは<strong>「${esc(TAGS[t1.tag] ? TAGS[t1.tag].phrase : '')}」</strong>という質です。${esc(t1.sourceNames.slice(0,3).join('・'))}${t1.n>3?'ほか':''}——<strong>${t1.n}つの占術</strong>が、別々の言葉で同じことを告げています。${others.length?`そこに<strong>${others.join('</strong>と<strong>')}</strong>が重なるのが、${esc(fullName)}さまという組み合わせです。`:''}</p>`);
+    }
     if (essence.essence) {
       lines.push(`<p>${esc(essence.essence)}</p>`);
     }
@@ -172,6 +184,18 @@
     }
     if (essence.ageThought){
       lines.push(`<p>逆に、今あなたが知らず知らず<strong>老けやすい思考</strong>に陥っているとすれば、それは「${esc(essence.ageThought)}」のクセ。これを少しずつ手放すことが、これからの数年を大きく分けます。</p>`);
+    }
+    // ★ タグ統合：強みが裏返った形＋余裕がないときの出方
+    if (g && g.top && g.top.length){
+      const t1 = TAGS[g.top[0].tag];
+      const st = g.scenes && g.scenes.find(s => s.key === 'stress');
+      const stDef = st ? TAGS[st.tag] : t1;
+      if (t1){
+        lines.push(`<p>もう一つ、大事なことをお伝えします。いま${esc(fullName)}さまを消耗させているものの正体は、欠点ではなく<strong>強みが行きすぎた形</strong>である可能性が高いのです。${esc(t1.caution)}</p>`);
+      }
+      if (stDef){
+        lines.push(`<p>そして余裕がなくなったとき、あなたには<strong>${esc(stDef.stress)}</strong>という形で出やすい傾向があります。もし心当たりがあれば、それは性格の問題ではなく、単に容量を超えているサインです。${esc(stDef.care)}</p>`);
+      }
     }
 
     // ===== (c) 占術が示す転換点 =====
@@ -206,6 +230,20 @@
     }
     if (lp.advice){
       lines.push(`<p>ライフパス${calc.lifePath}のあなたへ、数秘術からのヒント：${esc(lp.advice)}</p>`);
+    }
+    // ★ タグ統合：相談テーマの領域に翻訳した具体解説
+    if (g && g.domains){
+      const map = { work:'work', love:'love', relation:'relation', family:'relation',
+                    money:'money', beauty:'love', health:'work', future:'work' };
+      const dom = map[worryKey];
+      const items = dom && g.domains[dom];
+      if (items && items.length){
+        const L = (D.DOMAIN_LABELS && D.DOMAIN_LABELS[dom]) || {};
+        lines.push(`<p><strong>複数の占術が共通して示すあなたの傾向を、「${esc(L.label||'')}」という場面の言葉に置き換えると、こうなります。</strong></p>`);
+        items.slice(0, 2).forEach(it => {
+          lines.push(`<p style="background:#f7f3ec;padding:.7rem 1rem;border-left:3px solid #b09060;border-radius:0 8px 8px 0;margin:.5rem 0;"><span style="color:#8a6840;font-size:11px;font-weight:700;">［${esc(tagLabel(it.tag))}・${it.n}占術が一致］</span><br>${esc(it.text)}</p>`);
+        });
+      }
     }
 
     // ★悩みカテゴリ × 12従星 × 通変星 の6軸直球解答
@@ -248,6 +286,11 @@
     if (roadmap.youngerSecret){
       actionList.push(roadmap.youngerSecret);
     }
+    // ★ タグ統合：余裕がないときの回復法を1つ入れる
+    if (g && g.scenes){
+      const st = g.scenes.find(s => s.key === 'stress');
+      if (st && TAGS[st.tag] && TAGS[st.tag].care) actionList.push(TAGS[st.tag].care);
+    }
     // フォールバック
     while (actionList.length < 3){
       actionList.push('鏡に向かって自分の目を見つめ、「あなたは大丈夫」と声に出して伝える。');
@@ -255,6 +298,10 @@
     lines.push(`<ul>`);
     actionList.slice(0,3).forEach(a => lines.push(`<li>${esc(a)}</li>`));
     lines.push(`</ul>`);
+    // ★ タグ統合：その人の決め方に合わせた進め方
+    if (g && g.decision){
+      lines.push(`<p style="margin-top:.6rem;">なお${esc(fullName)}さまは、複数の占術から見て<strong>「${esc(g.decision.style.name)}」</strong>の決め方をなさる方です。${esc(g.decision.style.how)}ですから上の3つも、全部やろうとせず<strong>ピンときた1つだけ</strong>を選んでください。それがあなたのやり方に合った始め方です。</p>`);
+    }
 
     // ===== 締め =====
     const closing = essence.youthThought

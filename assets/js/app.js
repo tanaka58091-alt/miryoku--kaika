@@ -186,7 +186,7 @@
     let dest = st.screen;
     let cat = st.cat || null;
     // 入力前は menu / category / report に戻れない（リセット直後など）
-    if (['screen-menu', 'screen-category', 'screen-report', 'screen-compat'].includes(dest) && !STATE.profile) {
+    if (['screen-menu', 'screen-category', 'screen-report', 'screen-compat', 'screen-quick'].includes(dest) && !STATE.profile) {
       dest = 'screen-input';
       cat = null;
     }
@@ -219,7 +219,7 @@
     if (target) {
       const dest = target.getAttribute('data-go');
       // 入力前は menu / category / report に進めない
-      if (['screen-menu', 'screen-category', 'screen-report', 'screen-compat'].includes(dest) && !STATE.profile) {
+      if (['screen-menu', 'screen-category', 'screen-report', 'screen-compat', 'screen-quick'].includes(dest) && !STATE.profile) {
         showScreen('screen-input');
         return;
       }
@@ -755,9 +755,52 @@
     persistState();
 
     $('#category-content').innerHTML = html;
+    buildCategoryIndex();
     updateCatNavLabels();
     showScreen('screen-category');
   }
+
+  // カテゴリ冒頭に「この章に含まれる占い」の索引を作る（v=34）
+  //  章によっては縦2万px近くあり、何が入っているのか分からないまま
+  //  延々スクロールすることになっていたため。
+  function buildCategoryIndex(){
+    const root = $('#category-content');
+    if (!root) return;
+    const old = root.querySelector('.cat-index');
+    if (old) old.remove();
+    const cards = $$('.fortune-card', root);
+    if (cards.length < 3) return;
+    const items = [];
+    cards.forEach((card, i) => {
+      const nameEl = card.querySelector('.fortune-name');
+      if (!nameEl) return;
+      const id = 'catcard-' + i;
+      card.id = id;
+      items.push({ id: id, label: nameEl.textContent.trim() });
+    });
+    if (items.length < 3) return;
+    const chips = items.map(it =>
+      `<button type="button" class="cat-index-chip" data-jump="${it.id}">${escapeHtml(it.label)}</button>`).join('');
+    const box = document.createElement('div');
+    box.className = 'cat-index';
+    box.innerHTML = `
+      <div class="cat-index-head">この章に含まれる占い（${items.length}件）</div>
+      <div class="cat-index-chips">${chips}</div>
+      <div class="cat-index-note">気になるものをタップすると、その占いまで移動します。上から順に読む必要はありません。</div>`;
+    const header = root.querySelector('.cat-header');
+    if (header && header.nextSibling) root.insertBefore(box, header.nextSibling);
+    else root.insertBefore(box, root.firstChild);
+  }
+
+  document.addEventListener('click', (e) => {
+    const chip = e.target.closest('[data-jump]');
+    if (!chip) return;
+    const target = document.getElementById(chip.getAttribute('data-jump'));
+    if (target) {
+      const top = target.getBoundingClientRect().top + window.pageYOffset - 76;
+      window.scrollTo({ top: top, behavior: 'auto' });
+    }
+  });
 
   // 現在のカテゴリに応じて「次へ」系ボタンの文言を更新（最終カテゴリでは総合レポートへ）
   function updateCatNavLabels(){
@@ -3832,6 +3875,33 @@
     }
   });
 
+  // ---------- 30秒サマリー（単独表示） ----------
+  // 統合分析はレポートの中にしか無く、最も価値のある章が埋もれていたため、
+  // 診断メニューの先頭から1タップで見られるようにする（v=32）
+  const btnQuick = $('#btn-quick-view');
+  if (btnQuick) btnQuick.addEventListener('click', () => {
+    if (!STATE.profile) { showScreen('screen-input'); return; }
+    try {
+      const calc = computeAll();
+      $('#quick-content').innerHTML = integrationSection(calc)
+        || '<p class="integ-none">サマリーを生成できませんでした。</p>';
+    } catch (err) {
+      console.error('[quick]', err);
+      $('#quick-content').innerHTML = '<p class="integ-none">サマリーの生成中にエラーが発生しました。</p>';
+    }
+    showScreen('screen-quick');
+  });
+
+  // ---------- 出生時刻のかんたん入力 ----------
+  document.addEventListener('click', (e) => {
+    const b = e.target.closest('.hour-quick button');
+    if (!b) return;
+    const el = document.getElementById('in-hour');
+    if (!el) return;
+    el.value = b.getAttribute('data-hour');
+    $$('.hour-quick button').forEach(x => x.classList.toggle('on', x === b));
+  });
+
   // ---------- 相性診断フォーム ----------
   const formPartner = $('#form-partner');
   if (formPartner) formPartner.addEventListener('submit', (e) => {
@@ -3871,6 +3941,38 @@
     showScreen('screen-report');
   });
 
+  // カテゴリHTMLからカテゴリ見出しを取り除く（レポートでは章見出しを別に付けるため）
+  const stripHeader = (s) => (s || '')
+    .replace(/<div class="cat-header[^"]*">[\s\S]*?<\/div>\s*<\/div>/, '')
+    .replace(/<div class="cat-header[^"]*">[\s\S]*?<\/div>/, '');
+
+  // レポートの詳細章（01〜07）を折りたたみで出す（v=34）
+  //  各カテゴリで一度読んだ内容がレポートに再掲され、同じものを2度読む構造だった。
+  //  画面では畳んでおき、PDF出力時は beforeprint で全て開く。
+  function repDetail(num, title, sub, html){
+    return `
+      <details class="report-section rep-detail">
+        <summary>
+          <span class="rep-num">${escapeHtml(num)}</span>
+          <span class="rep-title">${escapeHtml(title)}</span>
+          <span class="rep-sub">${escapeHtml(sub)}</span>
+          <span class="rep-open">開く</span>
+        </summary>
+        <div class="rep-body">${stripHeader(html)}</div>
+      </details>`;
+  }
+
+  // 印刷（PDF保存）時は折りたたみを全て展開し、終わったら元に戻す
+  let _reopenAfterPrint = [];
+  window.addEventListener('beforeprint', () => {
+    _reopenAfterPrint = $$('#report-content details:not([open])');
+    _reopenAfterPrint.forEach(d => { d.open = true; });
+  });
+  window.addEventListener('afterprint', () => {
+    _reopenAfterPrint.forEach(d => { d.open = false; });
+    _reopenAfterPrint = [];
+  });
+
   function buildReport() {
     const calc = computeAll();
     if (!calc) return;
@@ -3901,7 +4003,6 @@
     const animal = D.ANIMALS[calc.animal.animal];
     const elem = z.element;
     const ess = D.ESSENCE && D.ESSENCE[elem];
-    const stripHeader = (s) => (s || '').replace(/<div class="cat-header[^"]*">[\s\S]*?<\/div>\s*<\/div>/, '').replace(/<div class="cat-header[^"]*">[\s\S]*?<\/div>/, '');
 
     // ★ v=28: 総括をタグベースに。以前はエレメント4分岐のみで、
     //   全人類が4パターンの結論を読まされていた。
@@ -3967,47 +4068,18 @@
 
         ${integrationSection(calc)}
 
-        <div class="report-section">
-          <h2>01　本質の私を知る</h2>
-          <div class="section-sub">先天性 ／ 東西占術が指し示す、あなたの核</div>
-          ${stripHeader(STATE.results.cat1.html)}
+        <div class="report-detail-lead">
+          <h3>占術ごとの詳しい読み解き（01〜07）</h3>
+          <p>ここから先は、各占術の詳細です。診断メニューですでにお読みになった内容と同じものを、1冊にまとめて収めています。<strong>画面では読みたい章だけ開いてください。</strong>PDFに保存すると、すべて展開された状態で出力されます。</p>
         </div>
 
-        <div class="report-section">
-          <h2>02　表面の私を知る</h2>
-          <div class="section-sub">社会性 ／ 自分像と他人像のギャップ</div>
-          ${stripHeader(STATE.results.cat2.html)}
-        </div>
-
-        <div class="report-section">
-          <h2>03　心の歪み診断</h2>
-          <div class="section-sub">後天性 ／ なぜ今まで苦しかったのか／身体への現れ</div>
-          ${stripHeader(STATE.results.cat3.html)}
-        </div>
-
-        <div class="report-section">
-          <h2>04　人生ステージ診断</h2>
-          <div class="section-sub">今どこ ／ 今の位置と過ごし方</div>
-          ${stripHeader(STATE.results.cat4.html)}
-        </div>
-
-        <div class="report-section">
-          <h2>05　美の才能診断</h2>
-          <div class="section-sub">美 ／ あなたの魅力が最大化する世界観</div>
-          ${stripHeader(STATE.results.cat5.html)}
-        </div>
-
-        <div class="report-section">
-          <h2>06　若返り開運アクション</h2>
-          <div class="section-sub">開運 ／ 今日からできる12領域の具体策</div>
-          ${stripHeader(STATE.results.cat6.html)}
-        </div>
-
-        <div class="report-section">
-          <h2>07　あなたの人生ロードマップ</h2>
-          <div class="section-sub">設計図 ／ 手放すもの・伸ばすもの・3ヶ月後・1年後</div>
-          ${stripHeader(STATE.results.cat7.html)}
-        </div>
+${repDetail('01', '本質の私を知る', '先天性 ／ 東西占術が指し示す、あなたの核', STATE.results.cat1.html)}
+${repDetail('02', '表面の私を知る', '社会性 ／ 自分像と他人像のギャップ', STATE.results.cat2.html)}
+${repDetail('03', '心の歪み診断', '後天性 ／ なぜ今まで苦しかったのか／身体への現れ', STATE.results.cat3.html)}
+${repDetail('04', '人生ステージ診断', '今どこ ／ 今の位置と過ごし方', STATE.results.cat4.html)}
+${repDetail('05', '美の才能診断', '美 ／ あなたの魅力が最大化する世界観', STATE.results.cat5.html)}
+${repDetail('06', '若返り開運アクション', '開運 ／ 今日からできる12領域の具体策', STATE.results.cat6.html)}
+${repDetail('07', 'あなたの人生ロードマップ', '設計図 ／ 手放すもの・伸ばすもの・3ヶ月後・1年後', STATE.results.cat7.html)}
 
         ${worryPrescription(calc)}
 
@@ -4046,7 +4118,10 @@
     try {
       let html = '';
       if (window.LocalSynthesis && window.LocalSynthesis.generate){
-        html = window.LocalSynthesis.generate(STATE.profile, calc);
+        // 統合分析の結果を渡し、エレメント4分岐に頼らない文章にする（v=37）
+        let g = null;
+        try { g = buildIntegration(calc); } catch (_) {}
+        html = window.LocalSynthesis.generate(STATE.profile, calc, g);
       }
       if (html){
         placeholder.outerHTML = `<div class="block" style="background:linear-gradient(135deg,#fff8f3 0%,#ffeee1 100%);border:1px solid #e6c8a8;padding:1.4rem;">${html}<div style="margin-top:1.2rem;font-size:11px;color:#b08a6a;border-top:1px dashed #e6c8a8;padding-top:.6rem;">— 本章は、確定した占術結果と占術解説データを端末内で組み合わせて構成しています（生成AIは使用していません）。同じ生年月日・同じご相談内容であれば、いつ開いても同じ内容が表示されます。 —</div></div>`;
@@ -4086,6 +4161,8 @@
       return;
     }
     try { window.scrollTo(0, 0); } catch(_){}
+    // beforeprint が発火しないブラウザ向けの保険として、ここでも展開しておく
+    try { $$('#report-content details').forEach(d => { d.open = true; }); } catch(_){}
     try { window.print(); } catch (err) {
       console.error('[PRINT]', err);
       alert('印刷ダイアログを開けませんでした。ブラウザのメニューから「印刷」を選び、送信先を「PDFに保存」にしてください。');
