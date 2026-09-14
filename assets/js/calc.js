@@ -79,16 +79,19 @@
   // ---------- 3. 六十干支（日柱）計算 ----------
   // 1984年2月2日を「甲子」(0) とする近似。
   // 戻り値: 0〜59 （0=甲子, 1=乙丑, ... 59=癸亥）
-  function calcDay60(y, m, d) {
-    // 基準: 2000-01-01 は「戊午」(=54)
+  // 基準: 2000-01-01 は「戊午」(=54)。JD法 (JDN+49) mod 60 と一致することを検証済み。
+  // hour（0〜23）を渡した場合、23時以降は「夜子時」として翌日の日柱にする（v=41）。
+  // ※ 流派により扱いが分かれるため、画面ではその旨を注記する。
+  function calcDay60(y, m, d, hour) {
     const REF_Y = 2000, REF_M = 1, REF_D = 1, REF_INDEX = 54;
-    const diff = daysBetween(REF_Y, REF_M, REF_D, y, m, d);
+    let diff = daysBetween(REF_Y, REF_M, REF_D, y, m, d);
+    if (hour != null && hour !== '' && parseInt(hour, 10) >= 23) diff += 1;
     return mod(REF_INDEX + diff, 60);
   }
   // 日干（10干: 0=甲〜9=癸）
-  function calcDayStem(y, m, d) { return calcDay60(y, m, d) % 10; }
+  function calcDayStem(y, m, d, hour) { return calcDay60(y, m, d, hour) % 10; }
   // 日支（12支: 0=子〜11=亥）
-  function calcDayBranch(y, m, d) { return calcDay60(y, m, d) % 12; }
+  function calcDayBranch(y, m, d, hour) { return calcDay60(y, m, d, hour) % 12; }
 
   // ---------- 4. 動物占い ----------
   // 動物占い60キャラ早見表（noa方式）。
@@ -162,14 +165,34 @@
 
   // ---------- 7. 干支（生まれ年） ----------
   // 0:子 1:丑 2:寅 3:卯 4:辰 5:巳 6:午 7:未 8:申 9:酉 10:戌 11:亥
-  function calcYearBranch(y, m, d) {
-    let year = y;
-    if (m === 1 || (m === 2 && d < 4)) year = y - 1;
+  // 立春前かどうか。以前は 2/4 固定だったが、実際の立春は年により 2/3〜2/5 と動く。
+  // Ephemeris があれば太陽黄経（立春＝315°）で正確に判定する（v=41）。
+  // hour（JST）があればその時刻の太陽黄経で判定し、なければ正午で判定する。
+  // ※ 天体暦の精度は±0.5°（約±12時間）のため、立春当日±1日は不確かさが残る。
+  function isBeforeRisshun(y, m, d, hour) {
+    if (m > 2) return false;
+    if (global.Ephemeris && global.Ephemeris.julianDay && global.Ephemeris.sunLongitude) {
+      const h = (hour != null && hour !== '' && !isNaN(parseFloat(hour))) ? parseFloat(hour) : 12;
+      const jd = global.Ephemeris.julianDay(y, m, d) - 2451543.5 + (h - 9) / 24; // JST→UT
+      const lon = global.Ephemeris.sunLongitude(jd);
+      return lon >= 270 && lon < 315;   // 冬至〜立春の間＝前年扱い
+    }
+    return (m === 1 || (m === 2 && d < 4));
+  }
+  // 立春当日±1日生まれか（画面で「出生時刻により前年扱いになる場合がある」と注記するため）
+  function isNearRisshun(y, m, d) {
+    if (m !== 2 || d < 2 || d > 5) return false;
+    if (!(global.Ephemeris && global.Ephemeris.julianDay && global.Ephemeris.sunLongitude)) return d >= 3 && d <= 5;
+    const jd = global.Ephemeris.julianDay(y, m, d) - 2451543.5 + 0.5 - 9 / 24;
+    const lon = global.Ephemeris.sunLongitude(jd);
+    return Math.abs(lon - 315) < 1.2;
+  }
+  function calcYearBranch(y, m, d, hour) {
+    const year = isBeforeRisshun(y, m, d, hour) ? y - 1 : y;
     return mod(year - 4, 12);
   }
-  function calcYearStem(y, m, d) {
-    let year = y;
-    if (m === 1 || (m === 2 && d < 4)) year = y - 1;
+  function calcYearStem(y, m, d, hour) {
+    const year = isBeforeRisshun(y, m, d, hour) ? y - 1 : y;
     return mod(year - 4, 10);
   }
 
@@ -262,8 +285,8 @@
   }
   // 四柱命式：年柱・月柱・日柱・時柱、各柱の通変＋蔵干通変
   function calcMeishiki(y, mo, d, hour){
-    const yearStem    = calcYearStem(y, mo, d);
-    const yearBranch  = calcYearBranch(y, mo, d);
+    const yearStem    = calcYearStem(y, mo, d, hour);
+    const yearBranch  = calcYearBranch(y, mo, d, hour);
     const monthBranch = calcMonthBranch(mo, d, y);
     const monthStem   = calcMonthStem(yearStem, monthBranch);
     const dayStem     = calcDayStem(y, mo, d);
@@ -683,6 +706,38 @@
     return aspects;
   }
 
+  // ---------- 21-b. アスペクト（度数・オーブ判定 v=41） ----------
+  // 従来の calcAspects は星座差（30°刻み）だけを見ていたため、実際には
+  // 25°離れた天体を「合」と呼んだり、29°差を見落としたりしていた。
+  // Ephemeris の黄経を使い、オーブ（許容誤差）内かで判定する。
+  const ASPECT_DEFS = [
+    { type: 'conjunction', angle: 0,   orb: 8 },
+    { type: 'sextile',     angle: 60,  orb: 6 },
+    { type: 'square',      angle: 90,  orb: 7 },
+    { type: 'trine',       angle: 120, orb: 8 },
+    { type: 'opposition',  angle: 180, orb: 8 }
+  ];
+  function calcAspectsDeg(longitudes) {
+    const names = ['sun', 'moon', 'mercury', 'venus', 'mars', 'jupiter', 'saturn'];
+    const labels = { sun: '太陽', moon: '月', mercury: '水星', venus: '金星', mars: '火星', jupiter: '木星', saturn: '土星' };
+    const out = [];
+    for (let i = 0; i < names.length; i++) for (let j = i + 1; j < names.length; j++) {
+      const a = longitudes[names[i]], b = longitudes[names[j]];
+      if (typeof a !== 'number' || typeof b !== 'number') continue;
+      let diff = Math.abs(a - b) % 360; if (diff > 180) diff = 360 - diff;
+      for (const def of ASPECT_DEFS) {
+        const orb = Math.abs(diff - def.angle);
+        if (orb <= def.orb) {
+          out.push({ p1: names[i], p2: names[j], label1: labels[names[i]], label2: labels[names[j]],
+                     type: def.type, orb: Math.round(orb * 10) / 10, exact: orb <= 1.5 });
+          break;
+        }
+      }
+    }
+    // 正確なもの（オーブ小）を先に
+    return out.sort((x, y) => x.orb - y.orb);
+  }
+
   // ---------- 22. 西洋占星術 トランジット詳細 ----------
   // 今日の太陽・月が出生図の何ハウスを通過しているか
   function calcTransitHouse(natalAsc) {
@@ -700,25 +755,43 @@
 
   // ---------- 23. 四柱推命 大運（10年運） ----------
   // 簡易版：月柱から起算、男陽女陰=順行 / 男陰女陽=逆行
+  // 節入り（太陽黄経が 15°+30°k を跨ぐ日）までの日数を数える。dir=+1 で次、-1 で前。
+  function daysToSetsuiri(y, m, d, dir) {
+    if (!(global.Ephemeris && global.Ephemeris.julianDay && global.Ephemeris.sunLongitude)) return null;
+    const jd0 = global.Ephemeris.julianDay(y, m, d) - 2451543.5 + 0.5 - 9 / 24;
+    const seg = (jd) => Math.floor(mod(global.Ephemeris.sunLongitude(jd) - 15, 360) / 30);
+    const base = seg(jd0);
+    for (let k = 1; k <= 33; k++) {
+      if (seg(jd0 + dir * k) !== base) return k;
+    }
+    return null;
+  }
+  // 起運年齢：節入りまでの日数を3で割った年数（3日＝1年の伝統的換算）
+  function calcKiunAge(y, mo, d, forward) {
+    const days = daysToSetsuiri(y, mo, d, forward ? 1 : -1);
+    if (days == null) return 5;             // 天体暦が無い場合の従来値
+    return Math.max(0, Math.min(10, Math.round(days / 3)));
+  }
   function calcDaiUn(y, mo, d, sex, monthStem, monthBranch) {
     // sex: 0=男, 1=女。未指定の場合は男扱い
     const isMale = sex !== 1;
     const yangStem = (monthStem % 2 === 0); // 0,2,4,6,8 が陽干
     const forward = (isMale && yangStem) || (!isMale && !yangStem);
+    // 起運年齢：以前は5歳固定。節入りまでの日数から算出（v=41）
+    const kiun = calcKiunAge(y, mo, d, forward);
     const cycles = [];
-    // 開始年齢は簡易に「5歳」固定
     for (let i = 0; i < 8; i++) {
       const step = forward ? (i + 1) : -(i + 1);
       const stemIdx = mod(monthStem + step, 10);
       const branchIdx = mod(monthBranch + step, 12);
       cycles.push({
-        ageStart: 5 + i * 10,
-        ageEnd: 5 + (i + 1) * 10 - 1,
+        ageStart: kiun + i * 10,
+        ageEnd: kiun + (i + 1) * 10 - 1,
         stem: stemIdx,
         branch: branchIdx
       });
     }
-    return { forward: forward, cycles: cycles };
+    return { forward: forward, kiun: kiun, cycles: cycles };
   }
 
   // ---------- 24. 四柱推命 用神・忌神（五行バランス） ----------
@@ -848,6 +921,7 @@
 
   // ---------- 公開 ----------
   global.FortuneCalc = {
+    isBeforeRisshun, isNearRisshun,
     calcLifePath, calcBirthNumber,
     calcSoulNum, calcPersonalityNum, calcMaturityNum,
     calcSunSign,
@@ -865,7 +939,7 @@
     strokesOf, calcSeimei, seimeiCategory,
     calcPalmType, calcFaceType, pickDream,
     currentTransitTheme, currentYearLuck, currentNineStarYear,
-    calcAspects, calcTransitHouse, calcDaiUn, calcYoujin,
+    calcAspects, calcAspectsDeg, calcKiunAge, daysToSetsuiri, calcTransitHouse, calcDaiUn, calcYoujin,
     drawCelticCross, calcKanshiRelations,
     calcMonthlyStar, calcDailyStar, calcHengaIching,
     pickByDate, pickRandom, mod, reduceNumber, digitSum,

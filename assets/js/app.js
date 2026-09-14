@@ -648,9 +648,10 @@
     const sunSign  = F.calcSunSign(m, d);
     const lifePath = F.calcLifePath(y, m, d);
     const birthNum = F.calcBirthNumber(d);
-    const dayStem  = F.calcDayStem(y, m, d);
-    const dayBranch= F.calcDayBranch(y, m, d);
-    const yearBranch = F.calcYearBranch(y, m, d);
+    // 23時以降生まれは夜子時として翌日の日柱にする（時刻入力がある場合のみ・v=41）
+    const dayStem  = F.calcDayStem(y, m, d, hour);
+    const dayBranch= F.calcDayBranch(y, m, d, hour);
+    const yearBranch = F.calcYearBranch(y, m, d, hour);   // 立春当日は時刻で判定（v=41）
     const animal   = F.calcAnimal(y, m, d);
     const sixStar  = F.calcSixStar(y, m, d);
     const nineStar = F.calcNineStar(y, m, d);
@@ -672,7 +673,7 @@
     // 算命学：12従星（日干×年支）
     const jushoIdx = F.calc12Jusho ? F.calc12Jusho(dayStem, yearBranch) : 0;
     // 四柱推命：通変星（日干 vs 年干）
-    const yearStem = F.calcYearStem(y, m, d);
+    const yearStem = F.calcYearStem(y, m, d, hour);
     const tsuuhenIdx = F.calcTsuuhen ? F.calcTsuuhen(dayStem, yearStem) : 0;
     // v=9 新規：ルーン／易経／夢占い 決定論的インデックス
     const runeIdx   = F.calcRune   ? F.calcRune(y, m, d)   : 0;
@@ -690,10 +691,14 @@
     // v=10 新規：四柱推命 命式全体（年月日時の4柱）
     const meishiki     = F.calcMeishiki     ? F.calcMeishiki(y, m, d, hour) : null;
     // v=11 新規：アスペクト
-    const aspects = F.calcAspects ? F.calcAspects({
-      sun: sunSign, moon: moonSign, mercury: mercurySign,
-      venus: venusSign, mars: marsSign, jupiter: jupiterSign, saturn: saturnSign
-    }) : [];
+    // アスペクト：黄経が取れれば度数＋オーブで判定（v=41）。取れなければ星座差の略式
+    let aspects = [];
+    try {
+      const lon = (window.Ephemeris && window.Ephemeris.allSigns) ? window.Ephemeris.allSigns(y, m, d, hour).longitudes : null;
+      aspects = (lon && F.calcAspectsDeg) ? F.calcAspectsDeg(lon)
+        : (F.calcAspects ? F.calcAspects({ sun: sunSign, moon: moonSign, mercury: mercurySign,
+            venus: venusSign, mars: marsSign, jupiter: jupiterSign, saturn: saturnSign }) : []);
+    } catch (_) { aspects = []; }
     // v=11 新規：トランジット詳細
     const transitDetail = F.calcTransitHouse ? F.calcTransitHouse(ascendant) : null;
     // v=11 新規：大運
@@ -846,47 +851,61 @@
 
   // ---------- 多角的シンセシス（東西占術合致）カード ----------
   function buildSynthesisCard(c){
-    const z = D.ZODIAC[c.sunSign];
-    const stem = D.STEMS[c.dayStem];
-    const lp = D.NUMEROLOGY[c.lifePath];
-    const animal = D.ANIMALS[c.animal.animal];
-    const six = D.SIX_STAR[c.sixStar.star];
-    const elem = z.element; // 火/土/風/水
-    // 4つの占術が指している共通テーマを抽出
-    const elemMap = {
-      '火':{ keyword:'発信・先導・情熱', theme:'内側の火を、外に出していく' },
-      '土':{ keyword:'継続・信頼・実り',   theme:'時間をかけて、確かに育てる' },
-      '風':{ keyword:'対話・知性・繋がり', theme:'軽やかに、人と知を結んでいく' },
-      '水':{ keyword:'感受・癒し・浄化',   theme:'感じ取る力を、生かしていく' }
-    };
-    const em = elemMap[elem] || elemMap['火'];
+    // v=41: 以前は太陽星座のエレメントだけを見て「4つの占術が必ず同じ方向を指す」と
+    // 断言していた（他3占術の値は参照すらしていなかった）。統合エンジンの実データに置換。
+    const g = buildIntegration(c);
+    if (!g || !g.top.length) return '';
+    const DEFS = D.TAG_DEFS || {};
+    const t1 = g.top[0];
+    const srcList = t1.sourceNames.map(n => `<li><span class="synth-tag">${escapeHtml(n.split('／')[0])}</span>${escapeHtml(n.split('／')[1] || '')}</li>`).join('');
+    const tierLine = t1.tier === 'high'
+      ? `<strong>${t1.n}つの占術</strong>が同じ方向を指しています。これは偶然の一致率（平均${t1.expected.toFixed(1)}件）の約${t1.lift.toFixed(1)}倍で、<strong>際立った一致</strong>です。`
+      : t1.tier === 'medium'
+        ? `<strong>${t1.n}つの占術</strong>が同じ方向を指しています。偶然の一致率（平均${t1.expected.toFixed(1)}件）を超える<strong>一致</strong>です。`
+        : `${t1.n}つの占術がこの方向を示していますが、偶然でも平均${t1.expected.toFixed(1)}件は一致するため「強い共通点」とまでは言えません。<strong>相対的に最も出ている傾向</strong>としてお読みください。`;
     return `
       <div class="fortune-card synthesis-card">
-        <div class="synthesis-deco">◆ 東西4占術 合致 ◆</div>
+        <div class="synthesis-deco">◆ 東西占術 突き合わせ ◆</div>
         <div class="fortune-head">
           <div class="fortune-name">多角的シンセシス診断</div>
-          <div class="fortune-result">4つの占術が同じ方向を指しています</div>
+          <div class="fortune-result">${g.usedSources.length}種類の占術を並べて見えたもの</div>
         </div>
         <div class="fortune-body">
-          <p class="synth-lead">西洋・東洋・数秘・動物——別々に生まれた4つの占術が、あなたについて<strong>同じこと</strong>を告げています。</p>
-          <ul class="synth-list">
-            <li><span class="synth-tag">西洋占星術</span>${escapeHtml(z.name)}（${escapeHtml(elem)}の質）— ${escapeHtml(z.innate.replace(/<[^>]+>/g,'').split('。')[0])}。</li>
-            <li><span class="synth-tag">四柱推命</span>日干 ${escapeHtml(stem.name)}（${escapeHtml(stem.element)}）— ${escapeHtml(stem.innate.replace(/<[^>]+>/g,'').split('。')[0])}。</li>
-            <li><span class="synth-tag">数秘術</span>ライフパス${c.lifePath}（${escapeHtml(lp.title)}）— ${escapeHtml(lp.innate.replace(/<[^>]+>/g,'').split('。')[0])}。</li>
-            <li><span class="synth-tag">動物占い</span>${escapeHtml(animal.name)} ${animal.emoji} — ${escapeHtml(animal.innate.replace(/<[^>]+>/g,'').split('。')[0])}。</li>
-          </ul>
+          <p class="synth-lead">西洋・東洋・数秘・動物・姓名——別々に生まれた占術を、同じ言葉（特徴タグ）に翻訳して突き合わせました。</p>
           <div class="synth-converge">
-            <div class="synth-converge-label">▼ 4占術が共通して告げているテーマ</div>
-            <p class="synth-converge-text">「<strong>${escapeHtml(em.theme)}</strong>」<br><span class="synth-keyword">キーワード：${escapeHtml(em.keyword)}</span></p>
-            <p>占術はそれぞれ独立した体系ですが、本物のあなたを示すときには<strong>必ず同じ方向</strong>を指します。「偶然そう見える」のではありません。これがあなた本来の、揺るがない核です。</p>
+            <div class="synth-converge-label">▼ 最も多くの占術が指している傾向</div>
+            <p class="synth-converge-text">「<strong>${escapeHtml(DEFS[t1.tag].phrase)}</strong>」<br><span class="synth-keyword">${escapeHtml(DEFS[t1.tag].label)}</span></p>
+            <p>${tierLine}</p>
           </div>
-          <div class="synth-extra">
-            <p>さらに六星占術「${escapeHtml(six.name)}」も、この方向性と矛盾しません。複数の占術が一致するということは、それがあなたの<strong>魂のレベルの設計図</strong>であるという証拠です。</p>
-          </div>
+          <ul class="synth-list">${srcList}</ul>
+          ${g.duality.length ? `<div class="synth-extra"><p>同時に、<strong>${escapeHtml(DEFS[g.duality[0].strong.tag].label)}</strong>と<strong>${escapeHtml(DEFS[g.duality[0].weak.tag].label)}</strong>が同じ強さで拮抗しています。矛盾ではなく、場面で出方が変わる二面性です（詳しくはレポート先頭の「30秒で分かる、あなた」）。</p></div>` : ''}
         </div>
-        <div class="fortune-note">※ 占術ごとに表現は違っても、よく観察すると同じ「あなた」を別の角度から照らしています。</div>
+        <div class="fortune-note">※ 一致数は「占術どうしがどれだけ同じ方向を指したか」の指標です。科学的な正しさを表すものではなく、自分を考える材料としてお使いください。</div>
       </div>
     `;
+  }
+
+  // ---------- エレメント基本型カードへの個別リード（v=41・監査B-3） ----------
+  //  心の天気予報／ライフサイクル／本質／開運12領域はエレメント（火土風水）の
+  //  基本型で書かれており、以前はそれだけが結論になっていた。
+  //  基本型は残しつつ、統合エンジンの上位傾向を重ねて「あなたの場合はこう読む」を先頭に置く。
+  function elemPersonalLead(kind){
+    try {
+      const calc = computeAll();
+      const g = calc ? buildIntegration(calc) : null;
+      if (!g || !g.top.length) return '';
+      const DEFS = D.TAG_DEFS || {};
+      const t1 = g.top[0], t2 = g.top[1];
+      const z = D.ZODIAC[calc.sunSign]; const elem = z ? z.element : '';
+      const tierTxt = t1.tier === 'high' ? `${t1.n}つの占術で際立って一致` : t1.tier === 'medium' ? `${t1.n}つの占術で一致` : '相対的に最も強く出ている';
+      const hint = {
+        heart: `${escapeHtml(DEFS[t1.tag].stress)}という形で疲れが出やすい、という視点を重ねて読んでください。`,
+        cycle: `いまの段階を、${escapeHtml(DEFS[t1.tag].label)}をどう使うかという問いとして読むと、あなた向けの内容になります。`,
+        essence: `下の「${escapeHtml(elem)}」の説明は基本型です。あなた固有の核は「${escapeHtml(DEFS[t1.tag].phrase)}」——こちらを軸に読み替えてください。`,
+        luck: `12領域のうち、「${escapeHtml(DEFS[t1.tag].label)}」${t2 ? `と「${escapeHtml(DEFS[t2.tag].label)}」` : ''}が活きる領域から始めるのが、あなたの場合いちばん続きます。`
+      }[kind] || '';
+      return `<div class="elem-lead"><span class="elem-lead-tag">あなたの場合</span>この章は「${escapeHtml(elem)}」のエレメントに共通する基本型ですが、あなたは<strong>${escapeHtml(DEFS[t1.tag].label)}</strong>が${tierTxt}している人です。${hint}</div>`;
+    } catch (_) { return ''; }
   }
 
   // ---------- 心の天気予報カード ----------
@@ -902,6 +921,7 @@
           <div class="fortune-result">${escapeHtml(elem)}のあなたの内側</div>
         </div>
         <div class="fortune-body">
+          ${elemPersonalLead('heart')}
           <div class="hw-block hw-now">
             <div class="hw-label">☁ いまの心模様</div>
             <p>${escapeHtml(hw.now)}</p>
@@ -978,6 +998,7 @@
           <div class="fortune-result">${escapeHtml(elem)}のあなたの美の歩み方</div>
         </div>
         <div class="fortune-body">
+          ${elemPersonalLead('cycle')}
           <p class="lc-lead">あなたは現在<strong>${eraLabel}</strong>。${escapeHtml(elem)}の質を持つ女性にとって、年代ごとの美の磨き方は確実に変化します。</p>
           ${rows}
         </div>
@@ -1243,55 +1264,17 @@
     const DEFS = D.TAG_DEFS || {};
     if (!SRC.length || !Object.keys(DEFS).length) return null;
 
-    // --- 1) 信号を集める ---
-    const byTag = {};
-    const usedSources = [];
-    SRC.forEach(src => {
-      const val = sourceValueOf(src.key, c);
-      if (val == null) return;                       // 出生時刻なし → ascendant は除外される
-      const tags = tagsOf(src.key, val);
-      if (!tags.length) return;
-      usedSources.push(src.label);
-      tags.forEach((tag, i) => {
-        if (!DEFS[tag]) return;
-        // 並び順が前のタグほどその占術の主要な性質とみなす
-        const positional = 1 - (i * 0.18);
-        if (!byTag[tag]) byTag[tag] = { tag: tag, score: 0, sources: [] };
-        byTag[tag].score += src.weight * positional;
-        byTag[tag].sources.push({ label: src.label, role: src.role });
-      });
-    });
-
-    const agg = Object.keys(byTag).map(t => {
-      const e = byTag[t];
-      const names = [...new Set(e.sources.map(s => s.label))];
-      return { tag: t, score: e.score, sources: e.sources, sourceNames: names, n: names.length };
-    });
-    if (!agg.length) return null;
-
-    // --- 2) 相談テーマで重みづけ（表示順のみ。一致数の判定には使わない） ---
+    // --- 1〜4) 集計・偶然一致の補正・階層判定・二面性 → integration-core.js に委譲 ---
+    //   （ブラウザとNodeで同じコードを使い、1000人シミュレーションで検証できるようにした）
     const p = profileOverride || STATE.profile || {};
     const themeW = (D.THEME_TAG_WEIGHT && D.THEME_TAG_WEIGHT[p.worryCat]) || {};
-    agg.forEach(a => { a.ranked = a.score * (themeW[a.tag] || 1); });
-    agg.sort((a, b) => b.ranked - a.ranked);
-
-    // --- 3) 共通傾向：一致した占術の数で確信度を決める（無理に共通点を作らない） ---
-    const common = agg.filter(a => a.n >= 3)
-                      .map(a => Object.assign({}, a, { confidence: a.n >= 5 ? 'high' : 'medium' }));
-    const single = agg.filter(a => a.n === 1);
-
-    // --- 4) 二面性：対立するタグが双方とも2占術以上で出ていたら統合して提示 ---
-    const find = (t) => agg.find(a => a.tag === t);
-    const duality = [];
-    (D.TAG_OPPOSITES || []).forEach(pair => {
-      const x = find(pair[0]), y = find(pair[1]);
-      if (!x || !y || x.n < 2 || y.n < 2) return;
-      const strong = x.score >= y.score ? x : y;
-      const weak   = x.score >= y.score ? y : x;
-      const text = (D.DUALITY_TEXT || {})[strong.tag + '|' + weak.tag];
-      if (text) duality.push({ strong: strong, weak: weak, text: text });
-    });
-    duality.sort((a, b) => (b.strong.score + b.weak.score) - (a.strong.score + a.weak.score));
+    const core = (window.IntegrationCore && window.IntegrationCore.aggregate)
+      ? window.IntegrationCore.aggregate(D, c, { themeW: themeW }) : null;
+    if (!core) return null;
+    const agg = core.agg, common = core.common, single = core.single, duality = core.duality;
+    const usedSources = core.usedSources;
+    // 以降の判定（意思決定・行動軸）は偶然補正後のスコアを使う
+    agg.forEach(a => { a.score = a.adj; });
 
     // --- 5) 場面別の顔 ---
     const scenes = [];
@@ -1341,7 +1324,7 @@
     Object.keys(D.DOMAIN_LABELS || {}).forEach(dom => {
       const items = agg
         .filter(a => D.TAG_DOMAIN && D.TAG_DOMAIN[a.tag] && D.TAG_DOMAIN[a.tag][dom])
-        .slice(0, 3)
+        .slice(0, 5)   // v=41: 深掘りは上位5傾向まで（§41）
         .map(a => ({ tag: a.tag, n: a.n, text: D.TAG_DOMAIN[a.tag][dom] }));
       if (items.length) domains[dom] = items;
     });
@@ -1364,7 +1347,7 @@
       <details class="why-details">
         <summary>なぜそう判断したの？</summary>
         <div class="why-body">
-          <p style="margin:0 0 .3rem 0;">この傾向は、次の<strong>${item.n}つの占術</strong>で共通して現れています。</p>
+          <p style="margin:0 0 .3rem 0;">この傾向は、次の<strong>${item.n}つの占術</strong>で共通して現れています。${(item.expected != null) ? `占術の組み合わせ上、偶然でも平均<strong>${item.expected.toFixed(1)}件</strong>は一致するところ、<strong>${item.n}件</strong>（約${item.lift.toFixed(1)}倍）でした。` : ''}</p>
           <ul style="margin:.2rem 0 .3rem 1.1rem;padding:0;">${list}</ul>
           <p style="margin:.3rem 0 0 0;font-size:11.5px;color:#a08878;">※ 一致した占術が多いほど、あなたの中で表に出やすい傾向と考えられます。占術どうしの一致度を示す指標であり、科学的な正しさを表すものではありません。</p>
         </div>
@@ -1372,8 +1355,8 @@
   }
 
   const CONF_BADGE = {
-    high:   { text:'複数占術が強く一致', bg:'#f5ead8', fg:'#8a5a2c', bd:'#d9b78a' },
-    medium: { text:'複数占術が一致',     bg:'#f2eef7', fg:'#5f4a7a', bd:'#c6b6da' }
+    high:   { text:'際立った一致', bg:'#f5ead8', fg:'#8a5a2c', bd:'#d9b78a' },
+    medium: { text:'一致',         bg:'#f2eef7', fg:'#5f4a7a', bd:'#c6b6da' }
   };
 
   // 意思決定パターン
@@ -1631,12 +1614,69 @@
   }
 
   // ---------- レポート冒頭：30秒サマリー＋統合分析 ----------
+  // ---------- 今の流れ（今年・今月）→ 行動ヒント（v=41・§37/§38） ----------
+  //  四柱推命の流年・流月：今年（今月）の干 vs 日干 の通変で「今の流れ」を決定論的に読む。
+  //  月が変わると内容が変わるので、戻ってくる理由にもなる。
+  function periodSection(c, opts){
+    const H = D.PERIOD_HINT;
+    if (!H || !F.calcTsuuhen || !F.calcYearStem || !F.calcMonthStem || !F.calcMonthBranch) return '';
+    const DEFS = D.TAG_DEFS || {};
+    const today = new Date();
+    const ty = today.getFullYear(), tm = today.getMonth() + 1, td = today.getDate();
+    const yStem = F.calcYearStem(ty, tm, td);
+    const mBranch = F.calcMonthBranch(tm, td, ty);
+    const mStem = F.calcMonthStem(yStem, mBranch);
+    const yIdx = F.calcTsuuhen(c.dayStem, yStem), mIdx = F.calcTsuuhen(c.dayStem, mStem);
+    const Y = H[yIdx], M = H[mIdx];
+    if (!Y || !M) return '';
+    const STEMN = ['甲','乙','丙','丁','戊','己','庚','辛','壬','癸'];
+    const BRN = ['子','丑','寅','卯','辰','巳','午','未','申','酉','戌','亥'];
+    const yBranch = F.calcYearBranch(ty, tm, td);
+    let tie = '';
+    try {
+      const g = buildIntegration(c);
+      const t1 = g && g.top && g.top[0];
+      if (t1 && DEFS[t1.tag]) tie = `<p class="period-tie">この流れの中で、あなたの「<strong>${escapeHtml(DEFS[t1.tag].label)}</strong>」は特に活きます。${escapeHtml(DEFS[t1.tag].strength.split('。')[0])}。</p>`;
+    } catch (_) {}
+    const block = (label, P, kanshi) => `
+      <div class="period-card">
+        <div class="period-head"><span class="period-label">${escapeHtml(label)}</span><span class="period-kanshi">${escapeHtml(kanshi)}</span></div>
+        <div class="period-theme">「${escapeHtml(P.theme)}」<span class="period-star">通変星：${escapeHtml(P.name)}</span></div>
+        <p class="period-row"><span class="period-tag">活かしやすいこと</span>${escapeHtml(P.good)}</p>
+        <p class="period-row"><span class="period-tag period-tag-c">慎重に考えたいこと</span>${escapeHtml(P.careful)}</p>
+        <p class="period-row"><span class="period-tag period-tag-s">おすすめの過ごし方</span>${escapeHtml(P.spend)}</p>
+        <p class="period-q">振り返りの問い：${escapeHtml(P.question)}</p>
+      </div>`;
+    const compact = opts && opts.compact;
+    return `
+      <div class="report-section period-section">
+        <h2>${compact ? '今の流れ' : '10　今の流れ ／ 今年と今月'}</h2>
+        <div class="section-sub">${ty}年${tm}月の時点で、あなたの日干「${escapeHtml(STEMN[c.dayStem] || '')}」から見た流れ。良い悪いではなく「どう過ごすか」の材料です</div>
+        ${block('今年', Y, `${ty}年（${STEMN[yStem]}${BRN[yBranch]}）`)}
+        ${block('今月', M, `${tm}月（${STEMN[mStem]}${BRN[mBranch]}）`)}
+        ${tie}
+        <div class="integ-method">流年・流月は四柱推命の伝統的な読み方で、今年（今月）の干とあなたの日干の関係（通変星）から求めています。未来を確定するものではなく、月が変わればこの章の内容も変わります。ときどき戻って読み返してください。</div>
+      </div>`;
+  }
+
+  // 前回のフィードバックを取り出す（v=41：§40「体験改善に使う」の実装）
+  function lastFeedbackFor(p){
+    try {
+      const h = loadHistory().find(x => x.id === historyIdOf(p || {}));
+      return h && h.feedback ? h.feedback.value : null;
+    } catch (_) { return null; }
+  }
+
   function integrationSection(c){
     const g = buildIntegration(c);
     if (!g) return '';
     const DEFS = D.TAG_DEFS;
     const p = STATE.profile || {};
     const name = (p.sei || p.mei) ? `${p.sei}${p.mei}さん` : 'あなた';
+    // 前回「あまり当てはまらない」と答えた人には、際立った一致だけを軸に、断定を弱めて提示する
+    const fb = lastFeedbackFor(p);
+    const strictMode = (fb === 'low');
+    if (strictMode) g.common = g.common.filter(a => a.tier === 'high');
 
     // --- 30秒サマリー ---
     const t1 = g.top[0], t2 = g.top[1], t3 = g.top[2];
@@ -1644,7 +1684,7 @@
     const summaryLines = [
       `<p class="sum-lead">${escapeHtml(name)}を、${g.usedSources.length}種類の占術から一言で言うと——</p>`,
       `<p class="sum-hero">「${escapeHtml(phrase(t1))}」</p>`,
-      t2 ? `<p class="sum-add">そこに<strong>${escapeHtml(DEFS[t2.tag].label)}</strong>${t3 ? `と<strong>${escapeHtml(DEFS[t3.tag].label)}</strong>` : ''}が重なります。</p>` : ''
+      t2 ? `<p class="sum-add">${escapeHtml((D.TAG_TAIL && D.TAG_TAIL[t2.tag]) || `そこに${DEFS[t2.tag].label}が重なります。`)}${t3 ? `<span class="sum-third">３つめの傾向は<strong>${escapeHtml(DEFS[t3.tag].label)}</strong>。</span>` : ''}</p>` : ''
     ].join('');
 
     const dual0 = g.duality[0];
@@ -1655,18 +1695,18 @@
     // --- 共通する傾向 ---
     const commonHtml = g.common.length ? g.common.slice(0, 5).map(item => {
       const def = DEFS[item.tag];
-      const b = CONF_BADGE[item.confidence];
+      const b = CONF_BADGE[item.tier] || CONF_BADGE.medium;
       return `
         <div class="integ-card">
           <div class="integ-head">
             <span class="integ-title">${escapeHtml(def.label)}</span>
-            <span class="integ-badge" style="background:${b.bg};color:${b.fg};border-color:${b.bd};">${escapeHtml(b.text)}（${item.n}占術）</span>
+            <span class="integ-badge" style="background:${b.bg};color:${b.fg};border-color:${b.bd};">${escapeHtml(b.text)}（${item.n}占術・偶然の約${item.lift.toFixed(1)}倍）</span>
           </div>
-          <p class="integ-strength"><span class="integ-tag-label">活きる場面</span>${escapeHtml(def.strength)}</p>
+          <p class="integ-strength"><span class="integ-tag-label">活きる場面</span>${escapeHtml(def.strength)}${(item === g.common[0] && g.top[1] && D.TAG_PAIR_NOTE && D.TAG_PAIR_NOTE[g.top[1].tag]) ? ' ' + escapeHtml(D.TAG_PAIR_NOTE[g.top[1].tag]) : ''}</p>
           <p class="integ-caution"><span class="integ-tag-label">裏返ったとき</span>${escapeHtml(def.caution)}</p>
           ${whyBlock(item)}
         </div>`;
-    }).join('') : `<p class="integ-none">今回は、3つ以上の占術がはっきり同じ方向を指す傾向は見つかりませんでした。これは「特徴がない」という意味ではなく、<strong>いろいろな面をバランスよく持っている</strong>ということです。下の各占術の結果を、それぞれ独立した視点としてお読みください。</p>`;
+    }).join('') : `<p class="integ-none">今回は、偶然の一致率を明らかに超えて複数の占術が同じ方向を指す傾向は見つかりませんでした。これは「特徴がない」という意味ではなく、<strong>ひとつの型に寄らず、いろいろな面をバランスよく持っている</strong>ということです。上の要約にある上位の傾向は、その中でも相対的に強く出ているものです。</p>`;
 
     // --- 二面性 ---
     const dualHtml = g.duality.length ? g.duality.slice(0, 2).map(d => `
@@ -1677,7 +1717,7 @@
           <p class="integ-dual-text">${escapeHtml(d.text)}</p>
           <p class="integ-dual-note">この2つは、${escapeHtml(d.strong.sourceNames.slice(0,2).join('・'))}などが前者を、${escapeHtml(d.weak.sourceNames.slice(0,2).join('・'))}などが後者を示しています。どちらも本当のあなたです。</p>
         </div>`).join('')
-      : `<p class="integ-none">今回は、はっきり対立する傾向のペアは見つかりませんでした。方向性が揃っている分、迷いが少ないタイプと言えます。</p>`;
+      : `<p class="integ-none">今回は、対立する2つの傾向が同じ強さで拮抗している組み合わせは見つかりませんでした。方向性が揃っている分、自分の軸が分かりやすく、迷いにくいタイプと言えます。</p>`;
 
     // --- 場面別の顔 ---
     const sceneHtml = g.scenes.map(s => `
@@ -1705,10 +1745,23 @@
       ? `<p class="integ-single">なお、<strong>${escapeHtml(g.single.slice(0,3).map(s => DEFS[s.tag].label).join('・'))}</strong>は1つの占術のみが示している傾向です。共通して現れているものほど強くは出ませんが、「そういう面もある」という視点として置いておいてください。</p>`
       : '';
 
+    const strictNote = strictMode ? `
+        <div class="integ-strict">前回「あまり当てはまらない」とお答えいただいたため、今回は<strong>偶然の一致率を大きく超えた傾向だけ</strong>に絞ってお伝えします。それでもしっくり来なければ、占術が示す「型」より、ご自身の実感を優先してください。</div>` : '';
+
+    // (25) 友だちと比べるための共有テキスト（個人情報は含めない）
+    const shareText = [
+      `私の「30秒で分かる、あなた」`,
+      `一言でいうと：${DEFS[t1.tag].phrase}`,
+      `上位3つ：${g.top.slice(0,3).map(t => DEFS[t.tag].label).join('・')}`,
+      dual0 ? `二面性：${DEFS[dual0.strong.tag].label} × ${DEFS[dual0.weak.tag].label}` : '',
+      `（${g.usedSources.length}種類の占術を突き合わせた結果）`
+    ].filter(Boolean).join('\n');
+
     return `
       <div class="report-section integ-section">
         <h2>00　30秒で分かる、あなた</h2>
         <div class="section-sub">${g.usedSources.length}種類の占術を突き合わせて見えた、共通点と二面性</div>
+        ${strictNote}
 
         <div class="sum-box">
           ${summaryLines}
@@ -1732,6 +1785,13 @@
         ${singleHtml}
 
         ${domainHtml(g, name)}
+
+        <div class="share-box">
+          <div class="share-head">受講生仲間と比べてみる</div>
+          <p class="share-lead">上位3つの傾向だけを短い文にしました。名前や生年月日は含みません。コピーしてLINE等で共有すると、「私と真逆だ」「同じだ」という会話から自己理解が深まります。</p>
+          <pre class="share-text" id="share-text">${escapeHtml(shareText)}</pre>
+          <button type="button" class="share-btn" id="btn-share-copy">コピーする</button>
+        </div>
 
         <div class="integ-method">
           この章は、生年月日などから計算した<strong>${g.usedSources.length}種類の占術結果</strong>にそれぞれ特徴タグを付け、何種類の占術が同じ方向を指しているかを機械的に集計して構成しています。占いの結果を決めつけとしてではなく、<strong>自分を考えるための材料</strong>としてお使いください。
@@ -1786,6 +1846,7 @@
           <div class="fortune-result">キーワード：${escapeHtml(ess.keyword)}</div>
         </div>
         <div class="fortune-body">
+          ${elemPersonalLead('essence')}
           <p class="essence-lead">${escapeHtml(ess.essence)}</p>
 
           <div class="essence-grid">
@@ -2436,7 +2497,7 @@
       { key:'love',   label:'💗 恋愛',       color:'#b06080' },
       { key:'work',   label:'💼 仕事',       color:'#8a6040' },
       { key:'money',  label:'💰 金運',       color:'#8a8040' },
-      { key:'advice', label:'✨ アドバイス',   color:'#a06090' }
+      { key:'advice', label:'アドバイス',   color:'#a06090' }
     ];
     const signsHtml = picks.map(s => {
       const isGood = s.tone === 'good';
@@ -2524,7 +2585,7 @@
 
     return `
       <div class="fortune-card" style="background:linear-gradient(135deg,#f5ebf8 0%,#e8d4f0 100%);border:1px solid #c8a8e0;">
-        <div style="text-align:center;font-size:11px;letter-spacing:.3em;color:#7a5a9a;margin-bottom:.4rem;">🔮 TAROT SPREAD 🔮</div>
+        <div style="text-align:center;font-size:11px;letter-spacing:.3em;color:#7a5a9a;margin-bottom:.4rem;">TAROT SPREAD </div>
         <div class="fortune-head">
           <div class="fortune-name">タロット 7ポジション・スプレッド</div>
           <div class="fortune-result">人生7軸のメッセージ</div>
@@ -2554,7 +2615,7 @@
       { key:'money',  label:'💰 お金', color:'#8a8040' },
       { key:'people', label:'🤝 人間関係', color:'#608890' },
       { key:'health', label:'🌿 健康', color:'#608060' },
-      { key:'luck',   label:'✨ 開運', color:'#a06090' }
+      { key:'luck',   label:'開運', color:'#a06090' }
     ];
 
     function sixAxisHtml(obj){
@@ -2656,7 +2717,7 @@
       { key:'work',   label:'💼 仕事',   color:'#8a6040' },
       { key:'health', label:'🌿 健康',   color:'#608060' },
       { key:'wealth', label:'💰 財運',   color:'#8a8040' },
-      { key:'advice', label:'✨ 開運アドバイス', color:'#a06090' }
+      { key:'advice', label:'開運アドバイス', color:'#a06090' }
     ];
     const axisHtml = axes.filter(a => det[a.key]).map(a => `
       <div style="padding:.5rem .7rem;margin:.3rem 0;background:#fffdf6;border-left:3px solid ${a.color};border-radius:0 8px 8px 0;">
@@ -2741,7 +2802,7 @@
       { key:'love',   label:'💗 恋愛',       color:'#b06080' },
       { key:'work',   label:'💼 仕事',       color:'#8a6040' },
       { key:'family', label:'🏠 家庭',       color:'#5070a8' },
-      { key:'advice', label:'✨ 開運アドバイス', color:'#a06090' }
+      { key:'advice', label:'開運アドバイス', color:'#a06090' }
     ];
     const renderStar = (star, placeLabel, placeDesc, branchName, accent) => {
       const axisHtml = axes.filter(a => star[a.key]).map(a => `
@@ -2764,7 +2825,7 @@
     };
     return `
       <div class="fortune-card" style="background:linear-gradient(135deg,#fbf6e8 0%,#f0e0c0 100%);border:1px solid #c8a868;">
-        <div style="text-align:center;font-size:11px;letter-spacing:.3em;color:#7a5830;margin-bottom:.4rem;">⛩ 算命学 宿命星（月支配置・日支配置）⛩</div>
+        <div style="text-align:center;font-size:11px;letter-spacing:.3em;color:#7a5830;margin-bottom:.4rem;">算命学 宿命星（月支配置・日支配置）</div>
         <div class="fortune-head">
           <div class="fortune-name">十大主星による命式読解</div>
           <div class="fortune-result">月支：${escapeHtml(ges.name)} ／ 日支：${escapeHtml(nis.name)}</div>
@@ -2780,6 +2841,7 @@
 
   // ---------- 四柱推命 命式カード（v=10：年柱・月柱・日柱・時柱＋蔵干通変） ----------
   function meishikiCard(c){
+    const p = STATE.profile || {};
     if (!c.meishiki) return '';
     const PILLAR = D.MEISHIKI_PILLARS || {};
     const STEMS = D.STEMS || [];
@@ -2845,7 +2907,7 @@
     }).join('');
     return `
       <div class="fortune-card" style="background:linear-gradient(135deg,#f6f0e6 0%,#e0d0b0 100%);border:1px solid #b89868;">
-        <div style="text-align:center;font-size:11px;letter-spacing:.3em;color:#7a5830;margin-bottom:.4rem;">⛩ 四柱推命 命式 完全展開 ⛩</div>
+        <div style="text-align:center;font-size:11px;letter-spacing:.3em;color:#7a5830;margin-bottom:.4rem;">四柱推命 命式 完全展開</div>
         <div class="fortune-head">
           <div class="fortune-name">年柱・月柱・日柱・時柱 × 通変＋蔵干通変</div>
           <div class="fortune-result">日干 ${escapeHtml(stemName(M.day.stem))} 基準</div>
@@ -2853,7 +2915,7 @@
         <div class="fortune-body">
           ${pillarHtml}
         </div>
-        <div class="fortune-note">※ 本格四柱推命では命式の4柱すべて（年柱=祖先・幼少期、月柱=社会的活動・両親、日柱=自分自身・配偶者、時柱=晩年・子供）と、各柱の天干通変＋地支に隠れた蔵干通変を読み解きます。出生時刻が分かるとさらに精緻な鑑定になります。</div>
+        <div class="fortune-note">※ 本格四柱推命では命式の4柱すべて（年柱=祖先・幼少期、月柱=社会的活動・両親、日柱=自分自身・配偶者、時柱=晩年・子供）と、各柱の天干通変＋地支に隠れた蔵干通変を読み解きます。出生時刻が分かるとさらに精緻な鑑定になります。${(p.hour != null && p.hour !== '' && parseInt(p.hour,10) >= 23) ? '<br>※ 23時以降のお生まれのため、日柱は「夜子時」として翌日の干支で算出しています（流派により当日扱いとする場合もあります）。' : ''}${(F.isNearRisshun && F.isNearRisshun(p.y, p.m, p.d)) ? '<br>※ 立春の前後1日以内のお生まれです。年柱は' + (p.hour != null && p.hour !== '' ? '出生時刻' : '正午') + 'の太陽の位置で判定しており、時刻によって前年の干支になることがあります。' : ''}</div>
       </div>
     `;
   }
@@ -2891,7 +2953,7 @@
       { key:'love',   label:'💗 恋愛',   color:'#b06080' },
       { key:'work',   label:'💼 仕事',   color:'#8a6040' },
       { key:'money',  label:'💰 お金',   color:'#8a8040' },
-      { key:'advice', label:'✨ アドバイス', color:'#a06090' }
+      { key:'advice', label:'アドバイス', color:'#a06090' }
     ];
     const axisHtml = axes.filter(a => r[a.key]).map(a => `
       <div style="padding:.5rem .7rem;margin:.3rem 0;background:#fffdf6;border-left:3px solid ${a.color};border-radius:0 8px 8px 0;">
@@ -2926,7 +2988,7 @@
     const axes = [
       { key:'love',   label:'💗 恋愛',     color:'#b06080' },
       { key:'work',   label:'💼 仕事',     color:'#8a6040' },
-      { key:'advice', label:'✨ アドバイス', color:'#a06090' }
+      { key:'advice', label:'アドバイス', color:'#a06090' }
     ];
     const axisHtml = axes.filter(a => h[a.key]).map(a => `
       <div style="padding:.5rem .7rem;margin:.3rem 0;background:#fffdf6;border-left:3px solid ${a.color};border-radius:0 8px 8px 0;">
@@ -3017,7 +3079,7 @@
           <p style="font-size:13px;color:#5a4a6a;line-height:1.9;">ハウスの起点になるアセンダントは、<strong>生まれた瞬間に東の地平線へ昇っていた星座</strong>です。約2時間で1つ動くため、出生時刻が分からないと算出できません。</p>
           <p style="font-size:13px;color:#5a4a6a;line-height:1.9;">おおよその時刻（「朝方」「お昼ごろ」なら 6時・12時 など）でも構いません。母子手帳や親御さんの記憶で分かる場合は、入力画面の「生まれた時刻」に入れて再診断してみてください。この章と、月・アセンダントに関する読みが加わります。</p>
         </div>
-        <div class="fortune-note">※ 推測でハウスを表示することはしていません。分からない場合は、他の30以上の占術結果だけでも診断は十分に成立します。</div>
+        <div class="fortune-note">※ 推測でハウスを表示することはしていません。分からない場合は、他の占術結果だけでも診断は十分に成立します。</div>
       </div>`;
     }
     const asc = c.ascendant;
@@ -3613,6 +3675,7 @@
         <span class="menu-tag">06　開運行動</span>
         <h2>若返り開運アクション</h2>
         <p>占いを「見て終わり」にしないための、あなた専用12領域の具体ルーチン。</p>
+        ${elemPersonalLead('luck')}
       </div>
 
       ${personalSignature(c, 'cat6')}
@@ -3905,6 +3968,21 @@
     textSizeIdx = applyTextSize((textSizeIdx + 1) % TEXT_SIZES.length);
   });
 
+  // ---------- 共有テキストのコピー（v=41） ----------
+  document.addEventListener('click', (e) => {
+    const btn = e.target.closest('#btn-share-copy');
+    if (!btn) return;
+    const pre = btn.parentElement.querySelector('#share-text');
+    const text = pre ? pre.textContent : '';
+    const done = () => { btn.textContent = 'コピーしました'; setTimeout(() => { btn.textContent = 'コピーする'; }, 1800); };
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+      navigator.clipboard.writeText(text).then(done).catch(() => selectFallback());
+    } else selectFallback();
+    function selectFallback(){
+      try { const r = document.createRange(); r.selectNodeContents(pre); const s = getSelection(); s.removeAllRanges(); s.addRange(r); btn.textContent = '選択しました。長押しでコピーしてください'; } catch (_) {}
+    }
+  });
+
   // ---------- 30秒サマリー（単独表示） ----------
   // 統合分析はレポートの中にしか無く、最も価値のある章が埋もれていたため、
   // 診断メニューの先頭から1タップで見られるようにする（v=32）
@@ -3913,8 +3991,8 @@
     if (!STATE.profile) { showScreen('screen-input'); return; }
     try {
       const calc = computeAll();
-      $('#quick-content').innerHTML = integrationSection(calc)
-        || '<p class="integ-none">サマリーを生成できませんでした。</p>';
+      $('#quick-content').innerHTML = (integrationSection(calc)
+        || '<p class="integ-none">サマリーを生成できませんでした。</p>') + periodSection(calc, { compact: true });
     } catch (err) {
       console.error('[quick]', err);
       $('#quick-content').innerHTML = '<p class="integ-none">サマリーの生成中にエラーが発生しました。</p>';
@@ -4088,12 +4166,14 @@
     const report = `
       <div class="report" id="report-body">
         <div class="report-cover">
-          <div class="label">LIFE MANUAL</div>
-          <h1>多角的占い診断<br>人生の取扱説明書</h1>
-          <div class="sub">— for the woman who blooms again —</div>
-          <div class="for">For</div>
-          <div class="name">${escapeHtml(nameDisp)}</div>
-          <div class="date">${dateStr}</div>
+          <div class="cover-plate">
+            <div class="label">LIFE MANUAL</div>
+            <h1>多角的占い診断<br>人生の取扱説明書</h1>
+            <div class="sub">— for the woman who blooms again —</div>
+            <div class="for">For</div>
+            <div class="name">${escapeHtml(nameDisp)}</div>
+            <div class="date">${dateStr}</div>
+          </div>
         </div>
 
         ${integrationSection(calc)}
@@ -4120,6 +4200,8 @@ ${repDetail('07', 'あなたの人生ロードマップ', '設計図 ／ 手放�
             <p style="margin:0;font-size:13px;color:#a07a5a;">まとめを組み立てています…</p>
           </div>
         </div>
+
+        ${periodSection(calc)}
 
         <div class="report-section report-summary">
           <h2>総括 ／ ここから始まる、本当のあなた</h2>

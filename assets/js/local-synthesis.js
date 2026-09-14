@@ -157,7 +157,7 @@
       // ラベルを個別にエスケープしてから連結する（連結後に esc すると
       // 区切りの <strong> まで文字列として出てしまうため）
       const others = g.top.slice(1).map(t => esc(tagLabel(t.tag))).filter(Boolean);
-      lines.push(`<p>これら${g.usedSources.length}種類の占術を並べて突き合わせると、ばらばらに見える結果の奥に一本の線が通っているのが分かります。あなたの場合、それは<strong>「${esc(TAGS[t1.tag] ? TAGS[t1.tag].phrase : '')}」</strong>という質です。${esc(t1.sourceNames.slice(0,3).join('・'))}${t1.n>3?'ほか':''}——<strong>${t1.n}つの占術</strong>が、別々の言葉で同じことを告げています。${others.length?`そこに<strong>${others.join('</strong>と<strong>')}</strong>が重なるのが、${esc(fullName)}さまという組み合わせです。`:''}</p>`);
+      lines.push(`<p>これら${g.usedSources.length}種類の占術を並べて突き合わせると、ばらばらに見える結果の奥に一本の線が通っているのが分かります。あなたの場合、それは<strong>「${esc(TAGS[t1.tag] ? TAGS[t1.tag].phrase : '')}」</strong>という質です。${esc(t1.sourceNames.slice(0,3).join('・'))}${t1.n>3?'ほか':''}——${t1.tier ? `<strong>${t1.n}つの占術</strong>が、別々の言葉で同じことを告げています。` : `${t1.n}つの占術がこの方向を示しており、あなたの中で相対的に最も強く出ている質です。`}${others.length?`そこに<strong>${others.join('</strong>と<strong>')}</strong>が重なるのが、${esc(fullName)}さまという組み合わせです。`:''}</p>`);
     }
     if (essence.essence) {
       lines.push(`<p>${esc(essence.essence)}</p>`);

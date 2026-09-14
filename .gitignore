@@ -3,3 +3,7 @@ node_modules/
 *.log
 .vscode/
 .idea/
+
+# 生成画像の元PNG・暫定切り出し（表示用は assets/img/*.jpg）
+design/raw/
+design/tmp/
