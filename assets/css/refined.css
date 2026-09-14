@@ -567,6 +567,99 @@ p, li{ overflow-wrap: anywhere; }
 @media (max-width: 720px){ .compat-visual{ height: 140px; } .compat-cta > h3, .compat-cta > p, .compat-cta > .btn-outline{ margin-left: 18px; margin-right: 18px; } }
 @media print{ .compat-visual{ display: none !important; } }
 
+/* ---------- 要約ファースト（v61）：占いカード ---------- */
+.fortune-head.has-thumb{
+  display: grid; grid-template-columns: 56px 1fr; column-gap: 14px; row-gap: 6px; align-items: center;
+}
+.fortune-head.has-thumb > *{ grid-column: 2; }
+.fortune-head.has-thumb .card-thumb{ grid-column: 1; grid-row: 1 / span 2; align-self: start; }
+.fortune-head.has-thumb .fortune-result{ justify-self: start; }
+.card-thumb{
+  width: 56px; height: 56px; border-radius: 50%; position: relative; flex: 0 0 auto;
+  border: 1px solid rgba(195,162,116,0.55);
+  background-color: #fbf4ee; background-size: cover; background-position: center;
+  box-shadow: inset 0 0 0 3px #fff;
+}
+.card-thumb::before{      /* 画像がない間の月 */
+  content: ""; position: absolute; inset: 14px; border-radius: 50%;
+  background: radial-gradient(circle at 62% 42%, #fbf4ee 0 46%, transparent 47%), radial-gradient(circle, rgba(195,162,116,.75) 0 48%, transparent 50%);
+  opacity: .8;
+}
+.card-thumb[data-art]::before{ opacity: 0; }   /* 画像が読めない場合も背景色＋金の輪で成立 */
+.card-thumb[data-art="astro"]{ background-image: url("../img/card-astro.jpg"); }
+.card-thumb[data-art="shichu"]{ background-image: url("../img/card-shichu.jpg"); }
+.card-thumb[data-art="sanmei"]{ background-image: url("../img/card-sanmei.jpg"); }
+.card-thumb[data-art="numerology"]{ background-image: url("../img/card-numerology.jpg"); }
+.card-thumb[data-art="rokusei"]{ background-image: url("../img/card-rokusei.jpg"); }
+.card-thumb[data-art="animal"]{ background-image: url("../img/card-animal.jpg"); }
+.card-thumb[data-art="seimei"]{ background-image: url("../img/card-seimei.jpg"); }
+.card-thumb[data-art="tarot"]{ background-image: url("../img/card-tarot.jpg"); }
+.card-thumb[data-art="palm"]{ background-image: url("../img/card-palm.jpg"); }
+.card-thumb[data-art="oracle"]{ background-image: url("../img/card-oracle.jpg"); }
+.card-thumb[data-art="kyusei"]{ background-image: url("../img/card-kyusei.jpg"); }
+.card-thumb[data-art="hizumi"]{ background-image: url("../img/card-hizumi.jpg"); }
+.card-thumb[data-art="stage"]{ background-image: url("../img/card-stage.jpg"); }
+.card-thumb[data-art="beauty"]{ background-image: url("../img/card-beauty.jpg"); }
+.card-thumb[data-art="luck"]{ background-image: url("../img/card-luck.jpg"); }
+.card-thumb[data-art="roadmap"]{ background-image: url("../img/card-roadmap.jpg"); }
+.card-thumb[data-art="moon"]{ background-image: url("../img/card-moon.jpg"); }
+.card-digest{ margin: 12px 0 0; font-size: 14.5px; line-height: 1.9; color: var(--c-ink); }
+.card-detail{ margin-top: 12px; }
+.card-detail > summary{
+  list-style: none; cursor: pointer; display: inline-flex; align-items: center; gap: 6px;
+  font-family: var(--sans); font-size: 13px; letter-spacing: .08em; color: var(--c-wine);
+  padding: 7px 14px; border: 1px solid rgba(116,43,65,.35); border-radius: 999px; background: #fff;
+  transition: .2s;
+}
+.card-detail > summary:hover{ background: #fdf6f7; border-color: var(--c-wine); }
+.card-detail > summary::-webkit-details-marker{ display: none; }
+.card-detail > summary::after{ content: "▾"; font-size: 11px; }
+.card-detail[open] > summary::after{ content: "▴"; }
+.card-detail > summary .card-close{ display: none; }
+.card-detail[open] > summary .card-open{ display: none; }
+.card-detail[open] > summary .card-close{ display: inline; }
+.card-detail-primary > summary{ display: none; }
+.card-full{ margin-top: 14px; }
+.card-detail-primary .card-full{ margin-top: 0; }
+.fortune-card[data-compact] .fortune-head{ margin-bottom: 0; padding-bottom: 12px; }
+@media (max-width: 720px){
+  .fortune-head.has-thumb{ grid-template-columns: 48px 1fr; column-gap: 12px; }
+  .card-thumb{ width: 48px; height: 48px; }
+  .card-digest{ font-size: 14px; }
+}
+
+/* 章の冒頭ビジュアル（メニューのモチーフを大きく使う） */
+.cat-visual{
+  height: 170px; border-radius: 18px; margin: 0 0 20px; border: 1px solid var(--c-line);
+  background-size: cover; background-position: center 58%;
+  background:
+    radial-gradient(ellipse 70% 60% at 75% 40%, rgba(255,236,236,0.95) 0%, transparent 60%),
+    linear-gradient(135deg, #fdf5f1 0%, #f6e8ec 55%, #f1e4ec 100%);
+  box-shadow: var(--shadow-soft);
+}
+.cat-visual[data-motif="01"]{ background-image: linear-gradient(180deg, transparent 55%, rgba(255,255,255,0.30)), url("../img/menu-motif-01.jpg"), radial-gradient(ellipse 70% 60% at 75% 40%, rgba(255,236,236,0.95) 0%, transparent 60%), linear-gradient(135deg, #fdf5f1 0%, #f6e8ec 55%, #f1e4ec 100%); }
+.cat-visual[data-motif="02"]{ background-image: linear-gradient(180deg, transparent 55%, rgba(255,255,255,0.30)), url("../img/menu-motif-02.jpg"), radial-gradient(ellipse 70% 60% at 75% 40%, rgba(255,236,236,0.95) 0%, transparent 60%), linear-gradient(135deg, #fdf5f1 0%, #f6e8ec 55%, #f1e4ec 100%); }
+.cat-visual[data-motif="03"]{ background-image: linear-gradient(180deg, transparent 55%, rgba(255,255,255,0.30)), url("../img/menu-motif-03.jpg"), radial-gradient(ellipse 70% 60% at 75% 40%, rgba(255,236,236,0.95) 0%, transparent 60%), linear-gradient(135deg, #fdf5f1 0%, #f6e8ec 55%, #f1e4ec 100%); }
+.cat-visual[data-motif="04"]{ background-image: linear-gradient(180deg, transparent 55%, rgba(255,255,255,0.30)), url("../img/menu-motif-04.jpg"), radial-gradient(ellipse 70% 60% at 75% 40%, rgba(255,236,236,0.95) 0%, transparent 60%), linear-gradient(135deg, #fdf5f1 0%, #f6e8ec 55%, #f1e4ec 100%); }
+.cat-visual[data-motif="05"]{ background-image: linear-gradient(180deg, transparent 55%, rgba(255,255,255,0.30)), url("../img/menu-motif-05.jpg"), radial-gradient(ellipse 70% 60% at 75% 40%, rgba(255,236,236,0.95) 0%, transparent 60%), linear-gradient(135deg, #fdf5f1 0%, #f6e8ec 55%, #f1e4ec 100%); }
+.cat-visual[data-motif="06"]{ background-image: linear-gradient(180deg, transparent 55%, rgba(255,255,255,0.30)), url("../img/menu-motif-06.jpg"), radial-gradient(ellipse 70% 60% at 75% 40%, rgba(255,236,236,0.95) 0%, transparent 60%), linear-gradient(135deg, #fdf5f1 0%, #f6e8ec 55%, #f1e4ec 100%); }
+.cat-visual[data-motif="07"]{ background-image: linear-gradient(180deg, transparent 55%, rgba(255,255,255,0.30)), url("../img/menu-motif-07.jpg"), radial-gradient(ellipse 70% 60% at 75% 40%, rgba(255,236,236,0.95) 0%, transparent 60%), linear-gradient(135deg, #fdf5f1 0%, #f6e8ec 55%, #f1e4ec 100%); }
+@media (max-width: 720px){ .cat-visual{ height: 140px; border-radius: 16px; } }
+
+/* 章の索引は畳んでおく */
+.cat-index-fold > summary{ list-style: none; cursor: pointer; display: flex; justify-content: space-between; align-items: center; gap: 10px; }
+.cat-index-fold > summary::-webkit-details-marker{ display: none; }
+.cat-index-toggle{ font-family: var(--sans); font-size: 12px; color: var(--c-wine); border: 1px solid rgba(116,43,65,.35); border-radius: 999px; padding: 4px 10px; white-space: nowrap; }
+.cat-index-fold[open] .cat-index-toggle{ background: #fdf6f7; }
+.cat-index-fold .cat-index-chips{ margin-top: 12px; }
+
+@media print{
+  .card-detail > summary{ display: none !important; }
+  .card-detail > .card-full{ display: block !important; }
+  .card-digest{ display: none !important; }
+  .cat-visual{ display: none !important; }
+}
+
 /* ---------- 印刷 ---------- */
 @media print{
   body::after{ display: none; }

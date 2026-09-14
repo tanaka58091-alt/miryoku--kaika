@@ -197,6 +197,8 @@
           // 診断済みの保存結果をそのまま再表示（乱数の引き直しはしない）
           STATE.currentCat = cat;
           $('#category-content').innerHTML = STATE.results[cat].html;
+          buildCategoryIndex();
+          compactCards($('#category-content'));
           updateCatNavLabels();
         } else {
           dest = 'screen-menu';
@@ -761,8 +763,102 @@
 
     $('#category-content').innerHTML = html;
     buildCategoryIndex();
+    compactCards($('#category-content'));
     updateCatNavLabels();
     showScreen('screen-category');
+  }
+
+
+  // ============================================================
+  // 要約ファースト（v=61）：占いカードを「見出し＋結果＋一文＋詳しく読む」に畳む
+  //  文字量が多く読み疲れるという指摘への対応。内容は削らず、見せ方だけを変える。
+  //  ・各カードにモチーフのサムネイル（占術ごと）を付ける
+  //  ・本文の最初の一文を要約として見せ、全文は <details> の中へ
+  //  ・章の主役カード（本質・歪み・ステージ・美・設計図など）は開いたまま
+  //  ・PDF出力時は beforeprint で全て展開される（既存の仕組みを共用）
+  // ============================================================
+  const CARD_ART_RULES = [
+    [/西洋占星術|ホロスコープ|ハウス|アスペクト|太陽・月/, 'astro'],
+    [/四柱推命|命式|大運|五行|干合|年柱|通変/, 'shichu'],
+    [/算命学|十大主星|従星/, 'sanmei'],
+    [/数秘/, 'numerology'],
+    [/六星/, 'rokusei'],
+    [/動物占い|個性心理/, 'animal'],
+    [/姓名|五格/, 'seimei'],
+    [/タロット|アルカナ/, 'tarot'],
+    [/手相|人相|紋/, 'palm'],
+    [/易経|卦|ルーン|夢占い/, 'oracle'],
+    [/九星/, 'kyusei'],
+    [/歪み|天気|印象|ギャップ|表面/, 'hizumi'],
+    [/美の|美容|磨き|美人/, 'beauty'],
+    [/ステージ|タイムライン|年代別/, 'stage'],
+    [/開運|ラッキー|ルーチン|12領域/, 'luck'],
+    [/ロードマップ|設計図|シンセシス/, 'roadmap'],
+  ];
+  function cardArtKey(name){
+    for (const [re, key] of CARD_ART_RULES) if (re.test(name)) return key;
+    return 'moon';
+  }
+  const PRIMARY_CARDS = ['essence-deep-card','hizumi-card','stage-card','beauty-type-card','roadmap-card','spot-card','action-card','synthesis-card','personal-sig-card'];
+  function digestFrom(body){
+    // 文書順にテキストを持つ末端要素を見て、最初の「文」を要約にする。
+    // ラベル（短い・記号始まり）、注記、個別リード（あなたの場合）は飛ばす。
+    const walker = document.createTreeWalker(body, NodeFilter.SHOW_ELEMENT);
+    let el;
+    while ((el = walker.nextNode())) {
+      if (el.closest('.elem-lead, .fortune-note, .annot, summary, .card-detail > summary')) continue;
+      if (/^(H[1-6]|BUTTON|SUMMARY|STYLE|SCRIPT)$/.test(el.tagName)) continue;
+      if (el.children.length && !/^(P|LI|TD|DD)$/.test(el.tagName)) continue;
+      const t = (el.textContent || '').replace(/\s+/g, ' ').trim();
+      if (t.length < 16 || /^[※【—─▶●◆■・]/.test(t)) continue;
+      if (!/[。！？!?]/.test(t) && t.length < 28) continue;   // 見出し・ラベルらしきもの
+      let s = (t.split(/(?<=[。！？!?])/)[0] || t).trim();
+      if (s.length < 12 && t.length > s.length) s = (t.split(/(?<=[。！？!?])/).slice(0, 2).join('')).trim();
+      if (s.length > 90) s = s.slice(0, 88) + '…';
+      return s;
+    }
+    return '';
+  }
+  function compactCards(root, opts){
+    if (!root) return;
+    const isReport = !!(opts && opts.report);
+    if (!isReport && STATE.currentCat && !root.querySelector('.cat-visual')) {
+      const header = root.querySelector('.cat-header');
+      if (header) {
+        const v = document.createElement('div');
+        v.className = 'cat-visual'; v.dataset.motif = '0' + String(STATE.currentCat).replace('cat', '');
+        v.setAttribute('aria-hidden', 'true');
+        header.parentNode.insertBefore(v, header);
+      }
+    }
+    $$('.fortune-card', root).forEach(card => {
+      if (card.dataset.compact) return;
+      const head = card.querySelector('.fortune-head');
+      const nameEl = card.querySelector('.fortune-name');
+      if (!head || !nameEl) return;
+      card.dataset.compact = '1';
+      const art = cardArtKey(nameEl.textContent.trim());
+      const thumb = document.createElement('div');
+      thumb.className = 'card-thumb'; thumb.dataset.art = art; thumb.setAttribute('aria-hidden', 'true');
+      head.insertBefore(thumb, head.firstChild);
+      head.classList.add('has-thumb');
+      const primary = PRIMARY_CARDS.some(c => card.classList.contains(c));
+      const rest = []; let n = head.nextSibling;
+      while (n) { rest.push(n); n = n.nextSibling; }
+      if (!rest.length) return;
+      const full = document.createElement('div'); full.className = 'card-full';
+      rest.forEach(x => full.appendChild(x));
+      const det = document.createElement('details');
+      det.className = 'card-detail' + (primary ? ' card-detail-primary' : '');
+      if (primary) det.open = true;
+      det.innerHTML = '<summary><span class="card-open">詳しく読む</span><span class="card-close">閉じる</span></summary>';
+      det.appendChild(full);
+      if (!primary) {
+        const d = digestFrom(full);
+        if (d) { const p = document.createElement('p'); p.className = 'card-digest'; p.textContent = d; card.appendChild(p); }
+      }
+      card.appendChild(det);
+    });
   }
 
   // カテゴリ冒頭に「この章に含まれる占い」の索引を作る（v=34）
@@ -789,9 +885,11 @@
     const box = document.createElement('div');
     box.className = 'cat-index';
     box.innerHTML = `
-      <div class="cat-index-head">この章に含まれる占い（${items.length}件）</div>
-      <div class="cat-index-chips">${chips}</div>
-      <div class="cat-index-note">気になるものをタップすると、その占いまで移動します。上から順に読む必要はありません。</div>`;
+      <details class="cat-index-fold">
+        <summary><span class="cat-index-head">この章に含まれる占い（${items.length}件）</span><span class="cat-index-toggle">目次を見る</span></summary>
+        <div class="cat-index-chips">${chips}</div>
+        <div class="cat-index-note">気になるものをタップすると、その占いまで移動します。上から順に読む必要はありません。</div>
+      </details>`;
     const header = root.querySelector('.cat-header');
     if (header && header.nextSibling) root.insertBefore(box, header.nextSibling);
     else root.insertBefore(box, root.firstChild);
@@ -4213,6 +4311,7 @@ ${repDetail('07', 'あなたの人生ロードマップ', '設計図 ／ 手放�
     `;
 
     $('#report-content').innerHTML = report;
+    compactCards($('#report-content'), { report: true });
 
     // 自動計算された未診断カテゴリも含めて保存
     persistState();
@@ -4236,7 +4335,8 @@ ${repDetail('07', 'あなたの人生ロードマップ', '設計図 ／ 手放�
         html = window.LocalSynthesis.generate(STATE.profile, calc, g);
       }
       if (html){
-        placeholder.outerHTML = `<div class="block" style="background:linear-gradient(135deg,#fff8f3 0%,#ffeee1 100%);border:1px solid #e6c8a8;padding:1.4rem;">${html}<div style="margin-top:1.2rem;font-size:11px;color:#b08a6a;border-top:1px dashed #e6c8a8;padding-top:.6rem;">— 本章は、確定した占術結果と占術解説データを端末内で組み合わせて構成しています（生成AIは使用していません）。同じ生年月日・同じご相談内容であれば、いつ開いても同じ内容が表示されます。 —</div></div>`;
+        placeholder.outerHTML = `<div class="block synth-block" style="background:linear-gradient(135deg,#fff8f3 0%,#ffeee1 100%);border:1px solid #e6c8a8;padding:1.4rem;">${html}<div style="margin-top:1.2rem;font-size:11px;color:#b08a6a;border-top:1px dashed #e6c8a8;padding-top:.6rem;">— 本章は、確定した占術結果と占術解説データを端末内で組み合わせて構成しています（生成AIは使用していません）。同じ生年月日・同じご相談内容であれば、いつ開いても同じ内容が表示されます。 —</div></div>`;
+        foldSynthesis(document.querySelector('#report-ai-section .synth-block'));
       } else {
         placeholder.outerHTML = `<div class="block" style="background:#faf6f0;border:1px solid #ddd;padding:1.2rem;text-align:center;color:#888;font-size:13px;">まとめを生成できませんでした。他の診断結果はそのまま有効です。</div>`;
       }
@@ -4245,6 +4345,30 @@ ${repDetail('07', 'あなたの人生ロードマップ', '設計図 ／ 手放�
       const fresh = document.getElementById('report-ai-placeholder');
       if (fresh) fresh.outerHTML = `<div class="block" style="background:#faf6f0;border:1px solid #ddd;padding:1.2rem;text-align:center;color:#888;font-size:13px;">まとめの生成中にエラーが発生しました。他の診断結果はそのまま有効です。</div>`;
     }
+  }
+
+
+  // 09章（約3,000字）は画面では最初の節だけ見せ、続きは「全文を読む」で開く（v=61）。PDFでは全文。
+  function foldSynthesis(block){
+    if (!block || block.querySelector('.synth-fold')) return;
+    const nodes = Array.from(block.childNodes);
+    const isHead = n => n.nodeType === 1 && /^H[2-5]$/.test(n.tagName);
+    let heads = 0, cut = -1;
+    for (let i = 0; i < nodes.length; i++) {
+      if (isHead(nodes[i])) { heads++; if (heads === 2) { cut = i; break; } }
+    }
+    if (cut < 0) {                          // 見出しが無ければ段落3つ目以降を畳む
+      let ps = 0;
+      for (let i = 0; i < nodes.length; i++) { if (nodes[i].nodeType === 1 && nodes[i].tagName === 'P') { ps++; if (ps === 3) { cut = i; break; } } }
+    }
+    if (cut < 3) return;
+    const det = document.createElement('details');
+    det.className = 'card-detail synth-fold';
+    det.innerHTML = '<summary><span class="card-open">全文を読む</span><span class="card-close">閉じる</span></summary>';
+    const full = document.createElement('div'); full.className = 'card-full';
+    nodes.slice(cut).forEach(n => full.appendChild(n));
+    det.appendChild(full);
+    block.appendChild(det);
   }
 
   // AI出力（HTML文字列）のサニタイズ：許可タグ以外は除去

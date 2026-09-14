@@ -27,6 +27,9 @@ ORDER=(
   menu-motif-01 menu-motif-02 menu-motif-03 menu-motif-04
   menu-motif-05 menu-motif-06 menu-motif-07
   compat-visual
+  card-astro card-shichu card-sanmei card-numerology card-rokusei card-animal
+  card-seimei card-tarot card-palm card-oracle card-kyusei
+  card-hizumi card-stage card-beauty card-luck card-roadmap card-moon
 )
 
 LIMIT="${1:-999}"
