@@ -149,16 +149,15 @@
     </div>`);
 
     // ===== (a) この方の核 =====
-    lines.push(`<h3>① あなたの核 ─ 生まれ持った輪郭</h3>`);
-    lines.push(`<p>${esc(fullName)}さま。あなたは西洋占星術では<strong>${esc(z.name)}</strong>（${esc(elem)}のエレメント）、数秘術では<strong>ライフパス${calc.lifePath}「${esc(lp.title||'')}」</strong>、そして算命学では<strong>${esc(sanmei.name||'')}</strong>として生まれていらっしゃいます。</p>`);
-    // ★ タグ統合：どの傾向が何占術で一致しているかを本文に織り込む
+    // v=64：見出しを「核（＝結論）」から「輪郭（＝材料）」に変更。
+    //   結論は 00統合分析 で一度だけ述べる設計にしたため、ここでは繰り返さず、
+    //   その核が各占術ではどう言い表されているかだけを見る（設計監査 第1段階）。
+    lines.push(`<h3>① 占術ごとに見た、あなたの輪郭</h3>`);
     if (g && g.top && g.top.length){
       const t1 = g.top[0];
-      // ラベルを個別にエスケープしてから連結する（連結後に esc すると
-      // 区切りの <strong> まで文字列として出てしまうため）
-      const others = g.top.slice(1).map(t => esc(tagLabel(t.tag))).filter(Boolean);
-      lines.push(`<p>これら${g.usedSources.length}種類の占術を並べて突き合わせると、ばらばらに見える結果の奥に一本の線が通っているのが分かります。あなたの場合、それは<strong>「${esc(TAGS[t1.tag] ? TAGS[t1.tag].phrase : '')}」</strong>という質です。${esc(t1.sourceNames.slice(0,3).join('・'))}${t1.n>3?'ほか':''}——${t1.tier ? `<strong>${t1.n}つの占術</strong>が、別々の言葉で同じことを告げています。` : `${t1.n}つの占術がこの方向を示しており、あなたの中で相対的に最も強く出ている質です。`}${others.length?`そこに<strong>${others.join('</strong>と<strong>')}</strong>が重なるのが、${esc(fullName)}さまという組み合わせです。`:''}</p>`);
+      lines.push(`<p>冒頭でお伝えした核は<strong>「${esc(TAGS[t1.tag] ? TAGS[t1.tag].phrase : '')}」</strong>でした。ここでは同じ核を、占術ごとの言葉で確かめていきます。</p>`);
     }
+    lines.push(`<p>${esc(fullName)}さま。あなたは西洋占星術では<strong>${esc(z.name)}</strong>（${esc(elem)}のエレメント）、数秘術では<strong>ライフパス${calc.lifePath}「${esc(lp.title||'')}」</strong>、そして算命学では<strong>${esc(sanmei.name||'')}</strong>として生まれていらっしゃいます。</p>`);
     if (essence.essence) {
       lines.push(`<p>${esc(essence.essence)}</p>`);
     }
@@ -190,11 +189,10 @@
       const t1 = TAGS[g.top[0].tag];
       const st = g.scenes && g.scenes.find(s => s.key === 'stress');
       const stDef = st ? TAGS[st.tag] : t1;
-      if (t1){
-        lines.push(`<p>もう一つ、大事なことをお伝えします。いま${esc(fullName)}さまを消耗させているものの正体は、欠点ではなく<strong>強みが行きすぎた形</strong>である可能性が高いのです。${esc(t1.caution)}</p>`);
-      }
+      // v=64：「強みが行きすぎた形」は 00統合分析 で既に述べているため繰り返さず、
+      //   ここでは回復のしかた（00にない情報）だけを残す（設計監査 第1段階）。
       if (stDef){
-        lines.push(`<p>そして余裕がなくなったとき、あなたには<strong>${esc(stDef.stress)}</strong>という形で出やすい傾向があります。もし心当たりがあれば、それは性格の問題ではなく、単に容量を超えているサインです。${esc(stDef.care)}</p>`);
+        lines.push(`<p>疲れが出るときの形は冒頭でお伝えしたとおりですが、<strong>戻し方</strong>まではまだお伝えしていませんでした。${esc(stDef.care)}</p>`);
       }
     }
 

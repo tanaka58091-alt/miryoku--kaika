@@ -312,8 +312,24 @@
     persistState();
     const notice = document.getElementById('resume-notice');
     if (notice) notice.remove();
-    showScreen('screen-menu');
+    // v=64（設計監査 第2段階）：入力のあとに10択のメニューを挟まず、結果へ直行する。
+    //   以前は「どれを押せばいいのか」を最初に決めさせており、これが迷いの入口だった。
+    showQuickResult();
   });
+
+  // 結果画面（30秒サマリー＋今の流れ）を描画して表示する
+  function showQuickResult(){
+    if (!STATE.profile) { showScreen('screen-input'); return; }
+    try {
+      const calc = computeAll();
+      $('#quick-content').innerHTML = (integrationSection(calc, { standalone: true })
+        || '<p class="integ-none">サマリーを生成できませんでした。</p>') + periodSection(calc, { compact: true });
+    } catch (err) {
+      console.error('[quick]', err);
+      $('#quick-content').innerHTML = '<p class="integ-none">サマリーの生成中にエラーが発生しました。</p>';
+    }
+    showScreen('screen-quick');
+  }
 
   function renderProfileSummary() {
     if (!STATE.profile) return;
@@ -778,9 +794,10 @@
   //  ・PDF出力時は beforeprint で全て展開される（既存の仕組みを共用）
   // ============================================================
   const CARD_ART_RULES = [
+    // 先頭に来る占術名を優先する（「算命学 12従星 ／ 四柱推命 通変星」は算命学として扱う）
+    [/^算命学|十大主星|従星/, 'sanmei'],
     [/西洋占星術|ホロスコープ|ハウス|アスペクト|太陽・月/, 'astro'],
     [/四柱推命|命式|大運|五行|干合|年柱|通変/, 'shichu'],
-    [/算命学|十大主星|従星/, 'sanmei'],
     [/数秘/, 'numerology'],
     [/六星/, 'rokusei'],
     [/動物占い|個性心理/, 'animal'],
@@ -859,6 +876,66 @@
       }
       card.appendChild(det);
     });
+    if (!isReport) { try { groupCardsBySystem(root); } catch (err) { console.error('[group]', err); } }
+  }
+
+
+  // ============================================================
+  // 占術体系ごとのグループ分け（v=66・設計監査 第3段階）
+  //  カテゴリ01は21枚が一列に並び、何を見ているのか分からなくなっていた。
+  //  カードのモチーフ判定（cardArtKey）をそのまま使って体系ごとに束ね、
+  //  「21個の項目」ではなく「7つの占術」として読めるようにする。
+  // ============================================================
+  const CARD_GROUPS = [
+    { key:'astro',      label:'西洋占星術',  note:'生まれた瞬間の空から読む' },
+    { key:'shichu',     label:'四柱推命',    note:'生年月日時を干支に置き換えて読む' },
+    { key:'sanmei',     label:'算命学',      note:'命式から役割とエネルギーを読む' },
+    { key:'numerology', label:'数秘術',      note:'数に還元して人生のテーマを読む' },
+    { key:'rokusei',    label:'六星占術',    note:'運命数から周期を読む' },
+    { key:'animal',     label:'動物占い',    note:'個性心理學の60分類' },
+    { key:'seimei',     label:'姓名判断',    note:'お名前の画数から読む' },
+    { key:'tarot',      label:'タロット',    note:'いまの状況を象徴で読む' },
+    { key:'palm',       label:'手相・人相',  note:'かたちに出ているものを読む' },
+    { key:'oracle',     label:'易・ルーン・夢', note:'象徴から今を読む' },
+    { key:'kyusei',     label:'九星気学',    note:'気の巡りから読む' },
+  ];
+  function groupCardsBySystem(root){
+    const cards = $$('.fortune-card', root);
+    if (cards.length < 10) return;                     // 少ない章はそのまま
+    if (root.querySelector('.card-group')) return;
+    const intro = cards.slice(0, 2);                   // 冒頭2枚（章の導入・本質）はグループ外
+    const rest  = cards.slice(2);
+    if (rest.length < 6) return;
+    const bucket = new Map();
+    rest.forEach(card => {
+      const nameEl = card.querySelector('.fortune-name');
+      const key = nameEl ? cardArtKey(nameEl.textContent.trim()) : 'moon';
+      if (!bucket.has(key)) bucket.set(key, []);
+      bucket.get(key).push(card);
+    });
+    const anchor = intro.length ? intro[intro.length - 1] : null;
+    let after = anchor;
+    const order = CARD_GROUPS.filter(gr => bucket.has(gr.key));
+    const leftovers = [...bucket.keys()].filter(k => !CARD_GROUPS.some(gr => gr.key === k));
+    order.forEach(gr => {
+      const list = bucket.get(gr.key);
+      const box = document.createElement('section');
+      box.className = 'card-group';
+      box.innerHTML = `<div class="card-group-head"><span class="card-group-thumb" data-art="${gr.key}" aria-hidden="true"></span><span class="card-group-title">${escapeHtml(gr.label)}</span><span class="card-group-count">${list.length}件</span><span class="card-group-note">${escapeHtml(gr.note)}</span></div>`;
+      list.forEach(c => box.appendChild(c));
+      if (after && after.parentNode) after.parentNode.insertBefore(box, after.nextSibling);
+      else root.appendChild(box);
+      after = box;
+    });
+    if (leftovers.length){
+      const list = leftovers.flatMap(k => bucket.get(k));
+      const box = document.createElement('section');
+      box.className = 'card-group';
+      box.innerHTML = `<div class="card-group-head"><span class="card-group-thumb" data-art="moon" aria-hidden="true"></span><span class="card-group-title">そのほかの占い</span><span class="card-group-count">${list.length}件</span><span class="card-group-note">複数の占術をまたぐ読み解き</span></div>`;
+      list.forEach(c => box.appendChild(c));
+      if (after && after.parentNode) after.parentNode.insertBefore(box, after.nextSibling);
+      else root.appendChild(box);
+    }
   }
 
   // カテゴリ冒頭に「この章に含まれる占い」の索引を作る（v=34）
@@ -1765,7 +1842,7 @@
     } catch (_) { return null; }
   }
 
-  function integrationSection(c){
+  function integrationSection(c, opts){
     const g = buildIntegration(c);
     if (!g) return '';
     const DEFS = D.TAG_DEFS;
@@ -1857,7 +1934,7 @@
 
     return `
       <div class="report-section integ-section">
-        <h2>00　30秒で分かる、あなた</h2>
+        <h2>${(opts && opts.standalone) ? 'あなたの結果' : '00　30秒で分かる、あなた'}</h2>
         <div class="section-sub">${g.usedSources.length}種類の占術を突き合わせて見えた、共通点と二面性</div>
         ${strictNote}
 
@@ -1978,8 +2055,6 @@
       ${personalSignature(c, 'cat1')}
 
       ${essenceCard}
-
-      ${buildSynthesisCard(c)}
 
       ${fortuneCard('西洋占星術 / 太陽星座', `${z.symbol} ${z.name}（${z.period}）`,
         `<div class="rich">${z.innate}</div>`)}
@@ -4085,18 +4160,7 @@
   // 統合分析はレポートの中にしか無く、最も価値のある章が埋もれていたため、
   // 診断メニューの先頭から1タップで見られるようにする（v=32）
   const btnQuick = $('#btn-quick-view');
-  if (btnQuick) btnQuick.addEventListener('click', () => {
-    if (!STATE.profile) { showScreen('screen-input'); return; }
-    try {
-      const calc = computeAll();
-      $('#quick-content').innerHTML = (integrationSection(calc)
-        || '<p class="integ-none">サマリーを生成できませんでした。</p>') + periodSection(calc, { compact: true });
-    } catch (err) {
-      console.error('[quick]', err);
-      $('#quick-content').innerHTML = '<p class="integ-none">サマリーの生成中にエラーが発生しました。</p>';
-    }
-    showScreen('screen-quick');
-  });
+  if (btnQuick) btnQuick.addEventListener('click', () => showQuickResult());
 
   // ---------- 出生時刻のかんたん入力 ----------
   document.addEventListener('click', (e) => {
@@ -4146,11 +4210,31 @@
     buildReport();
     showScreen('screen-report');
   });
+  // 結果画面からレポートへ（v=64・設計監査 第2段階）
+  const btnNextReport = document.getElementById('btn-next-report');
+  if (btnNextReport) btnNextReport.addEventListener('click', () => {
+    if (!STATE.profile) { showScreen('screen-input'); return; }
+    buildReport();
+    showScreen('screen-report');
+  });
 
   // カテゴリHTMLからカテゴリ見出しを取り除く（レポートでは章見出しを別に付けるため）
-  const stripHeader = (s) => (s || '')
-    .replace(/<div class="cat-header[^"]*">[\s\S]*?<\/div>\s*<\/div>/, '')
-    .replace(/<div class="cat-header[^"]*">[\s\S]*?<\/div>/, '');
+  //  v=69 不具合修正：以前は正規表現で <div class="cat-header"> 〜 </div></div> を消していたが、
+  //  非貪欲マッチが見出しの範囲を越えて次のカードの開始タグまで巻き込み、
+  //  レポートの章で先頭カードが1枚欠けて HTML が壊れていた（実測：20枚→19枚）。
+  //  DOM で解析して該当要素だけを取り除く方式に変更する。
+  const stripHeader = (s) => {
+    if (!s) return '';
+    try {
+      const tmp = document.createElement('div');
+      tmp.innerHTML = s;
+      tmp.querySelectorAll('.cat-header').forEach(el => el.remove());
+      return tmp.innerHTML;
+    } catch (err) {
+      console.error('[stripHeader]', err);
+      return s;
+    }
+  };
 
   // レポートの詳細章（01〜07）を折りたたみで出す（v=34）
   //  各カテゴリで一度読んだ内容がレポートに再掲され、同じものを2度読む構造だった。
@@ -4218,7 +4302,7 @@
     const DEFS = D.TAG_DEFS || {};
     const nameSum = (p.sei || p.mei) ? `${p.sei}${p.mei}さん` : 'あなた';
 
-    let coreHtml, painHtml, pathHtml;
+    let coreHtml, painHtml, pathHtml, threeDays, oneLine;
     if (gg && gg.top.length) {
       const t1 = gg.top[0], t2 = gg.top[1], t3 = gg.top[2];
       const srcList = t1.sourceNames.slice(0, 3).join('・');
@@ -4238,23 +4322,48 @@
       pathHtml = escapeHtml(ess ? ess.lifeTheme : z.future);
     }
 
+    // v=64：総括は「結論の再掲」をやめ、想起の一行＋3日間の具体に絞る（設計監査 第1段階）
+    //   以前は 00統合分析・09総合鑑定・総括 が同じ結論を3度言い直しており、
+    //   「で、結局どれが私なの」という分かりにくさの最大の原因になっていた。
+    if (gg && gg.top.length) {
+      const t1 = gg.top[0];
+      oneLine = `「${escapeHtml(DEFS[t1.tag].phrase)}」`;
+      const stressScene = gg.scenes.find(s => s.key === 'stress');
+      const stressDef = stressScene ? DEFS[stressScene.tag] : DEFS[t1.tag];
+      const days = [];
+      if (DEFS[t1.tag].care) days.push({ when: '今日', what: escapeHtml(DEFS[t1.tag].care) });
+      if (stressDef && stressDef.stress) days.push({ when: '明日', what: `${escapeHtml(stressDef.stress)}——この形が出ていないか、一日の終わりに一度だけ振り返ってみてください。出ていたら、それは疲れのサインです。` });
+      const d0 = gg.domains && gg.domains[0];
+      if (d0 && d0.items && d0.items[0]) days.push({ when: '明後日', what: escapeHtml(String(d0.items[0].text || d0.items[0]).replace(/<[^>]*>/g, '')) });
+      else if (gg.top[1]) days.push({ when: '明後日', what: `${escapeHtml(DEFS[gg.top[1].tag].strength)}` });
+      threeDays = days.slice(0, 3);
+    } else {
+      oneLine = `「${escapeHtml(ess ? ess.keyword : z.name)}」`;
+      threeDays = [];
+    }
+
     const firstStep = (gg && gg.decision)
       ? `${escapeHtml(nameSum)}は「${escapeHtml(gg.decision.style.name)}」の決め方をする人です。だからこのレポートも、全部を実行しようとしないでください。一番心に残った1ページに戻って、そこにある「今日からできる小さな一歩」を<strong>1つだけ</strong>選ぶ。それが${escapeHtml(nameSum)}のやり方に合った始め方です。`
       : `一番心に残った1ページを、もう一度だけ読み返してください。そして、その中の「今日からできる小さな一歩」を、明日の自分のために1つだけ選んでください。それが、本当のあなたへ戻る最初の道しるべになります。`;
 
+    const daysHtml = (threeDays && threeDays.length)
+      ? `<div class="block">
+        <h3>今日から3日間、これだけ</h3>
+        <ol class="three-days">${threeDays.map(d => `<li><span class="td-when">${escapeHtml(d.when)}</span><span class="td-what">${d.what}</span></li>`).join('')}</ol>
+        <p class="three-days-note">3つ全部でなくて構いません。できた日だけ数えてください。</p>
+      </div>`
+      : '';
+
     const summaryHtml = `
-      <div class="block">
-        <h3>あなたの本質は、ひと言で言うと</h3>
-        <p>${coreHtml}</p>
-      </div>
-      <div class="block">
-        <h3>これまで苦しかった理由</h3>
-        <p>${painHtml}</p>
+      <div class="block block-oneline">
+        <p class="sum-oneline">この1冊で、いちばん大事な一行は ${oneLine}。</p>
+        <p class="sum-oneline-note">冒頭の「30秒で分かる、あなた」でお伝えした核です。ここまでの章は、その一行を占術ごとの角度から確かめたものでした。</p>
       </div>
       <div class="block">
         <h3>これから生きるべき道</h3>
         <p>${pathHtml}</p>
       </div>
+      ${daysHtml}
       <div class="block block-final">
         <h3>このレポートを閉じた後、最初にやってほしいこと</h3>
         <p>${firstStep}</p>
@@ -4274,11 +4383,21 @@
           </div>
         </div>
 
+        <div class="report-section report-guide">
+          <h2>この1冊の読み方</h2>
+          <div class="section-sub">迷ったら、上から3つだけ読めば足ります</div>
+          <ol class="guide-list">
+            <li><strong>結論はこの次の「00」だけ</strong>です。あなたがどんな人かは、そこに一度だけ書いてあります。</li>
+            <li><strong>01〜07は、その結論の根拠</strong>です。占術ごとに「なぜそう言えるか」を確かめる章なので、気になるものだけ開いてください。</li>
+            <li><strong>08〜総括は、これからの話</strong>です。お悩みへの答え、今月の流れ、今日からの3日間を置いています。</li>
+          </ol>
+        </div>
+
         ${integrationSection(calc)}
 
         <div class="report-detail-lead">
-          <h3>占術ごとの詳しい読み解き（01〜07）</h3>
-          <p>ここから先は、各占術の詳細です。診断メニューですでにお読みになった内容と同じものを、1冊にまとめて収めています。<strong>画面では読みたい章だけ開いてください。</strong>PDFに保存すると、すべて展開された状態で出力されます。</p>
+          <h3>01〜07　その結論の根拠（占術ごとの読み解き）</h3>
+          <p>ここから先は、上の結論を<strong>どの占術がどう支えているか</strong>を確かめる章です。結論そのものは上でお伝えしたので、<strong>気になる占術だけ開けば十分</strong>です。PDFに保存すると、すべて展開された状態で出力されます。</p>
         </div>
 
 ${repDetail('01', '本質の私を知る', '先天性 ／ 東西占術が指し示す、あなたの核', STATE.results.cat1.html)}

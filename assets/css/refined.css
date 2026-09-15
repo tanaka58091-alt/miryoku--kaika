@@ -631,10 +631,13 @@ p, li{ overflow-wrap: anywhere; }
 /* 章の冒頭ビジュアル（メニューのモチーフを大きく使う） */
 .cat-visual{
   height: 170px; border-radius: 18px; margin: 0 0 20px; border: 1px solid var(--c-line);
-  background-size: cover; background-position: center 58%;
   background:
     radial-gradient(ellipse 70% 60% at 75% 40%, rgba(255,236,236,0.95) 0%, transparent 60%),
     linear-gradient(135deg, #fdf5f1 0%, #f6e8ec 55%, #f1e4ec 100%);
+  /* shorthand のあとに指定する（先に書くと background: で auto/0% に戻ってしまう） */
+  background-size: cover;
+  background-position: center 58%;
+  background-repeat: no-repeat;
   box-shadow: var(--shadow-soft);
 }
 .cat-visual[data-motif="01"]{ background-image: linear-gradient(180deg, transparent 55%, rgba(255,255,255,0.30)), url("../img/menu-motif-01.jpg"), radial-gradient(ellipse 70% 60% at 75% 40%, rgba(255,236,236,0.95) 0%, transparent 60%), linear-gradient(135deg, #fdf5f1 0%, #f6e8ec 55%, #f1e4ec 100%); }
@@ -659,6 +662,94 @@ p, li{ overflow-wrap: anywhere; }
   .card-digest{ display: none !important; }
   .cat-visual{ display: none !important; }
 }
+
+/* ---------- 第1段階（v64）：読み方ガイド・総括の一行・3日間 ---------- */
+.report-guide{ background: #fdf9f5; }
+.guide-list{ counter-reset: g; list-style: none; padding: 0; margin: 0; max-width: 620px; margin-left: auto; margin-right: auto; }
+.guide-list li{
+  counter-increment: g; position: relative; padding: 12px 14px 12px 46px; margin-bottom: 8px;
+  background: #fff; border: 1px solid var(--c-line); border-radius: 12px;
+  font-size: 14px; line-height: 1.9;
+}
+.guide-list li::before{
+  content: counter(g); position: absolute; left: 14px; top: 12px;
+  width: 22px; height: 22px; border-radius: 50%; background: var(--c-wine); color: #fff;
+  font-family: var(--serif-en); font-size: 12px; display: flex; align-items: center; justify-content: center;
+}
+.block-oneline{ background: linear-gradient(135deg,#fdf6f7 0%,#fbf1ec 100%) !important; border-left-color: var(--c-wine) !important; text-align: center; }
+.sum-oneline{ font-family: var(--serif); font-size: clamp(17px, 2.4vw, 21px); line-height: 1.75; color: var(--c-wine); margin: 0 0 8px !important; }
+.sum-oneline-note{ font-size: 12.5px !important; line-height: 1.85 !important; color: var(--c-ink-mute) !important; margin: 0 !important; }
+.three-days{ list-style: none; padding: 0; margin: 0; counter-reset: none; }
+.three-days li{ display: grid; grid-template-columns: 62px 1fr; gap: 12px; align-items: start; padding: 11px 0; border-bottom: 1px solid var(--c-line-soft); }
+.three-days li:last-child{ border-bottom: 0; }
+.td-when{ font-family: var(--serif); font-size: 13px; font-weight: 600; color: var(--c-gold-deep); letter-spacing: .08em; padding-top: 2px; }
+.td-what{ font-size: 14px; line-height: 1.9; }
+.three-days-note{ font-size: 12.5px !important; color: var(--c-ink-mute) !important; margin: 10px 0 0 !important; }
+@media (max-width: 720px){
+  .guide-list li{ font-size: 13.5px; padding-left: 42px; }
+  .three-days li{ grid-template-columns: 52px 1fr; gap: 10px; }
+}
+
+/* ---------- 第2段階（v65）：結果画面の「次の一手」 ---------- */
+.quick-next{ border: 0 !important; background: transparent !important; padding: 0 !important; margin-top: 34px; }
+.quick-next-lead{ text-align: center; font-size: 14px; color: var(--c-ink-soft); margin: 0 0 18px; }
+.next-cards{ display: grid; gap: 12px; }
+.next-card{
+  display: block; width: 100%; text-align: left; cursor: pointer;
+  background: var(--c-card); border: 1px solid var(--c-line); border-radius: var(--r-card);
+  padding: 20px 22px; box-shadow: var(--shadow-card); transition: .25s; position: relative;
+}
+.next-card:hover{ transform: translateY(-2px); box-shadow: var(--shadow-lift); border-color: rgba(195,162,116,.6); }
+.next-card:first-child{ border-color: rgba(116,43,65,.4); }
+.next-label{
+  display: inline-block; font-family: var(--sans); font-size: 10.5px; font-weight: 700; letter-spacing: .14em;
+  color: #fff; background: var(--c-wine); border-radius: 999px; padding: 3px 11px; margin-bottom: 10px;
+}
+.next-title{ display: block; font-family: var(--serif); font-size: 19px; font-weight: 600; color: var(--c-wine); letter-spacing: .06em; margin-bottom: 8px; }
+.next-desc{ display: block; font-size: 13.5px; line-height: 1.9; color: var(--c-ink-soft); margin-bottom: 12px; }
+.next-go{ display: block; font-family: var(--sans); font-size: 13.5px; letter-spacing: .1em; color: var(--c-wine); }
+.next-go::after{ content: " →"; }
+@media (max-width: 720px){
+  .next-card{ padding: 17px 17px; }
+  .next-title{ font-size: 17px; }
+  .next-desc{ font-size: 13px; }
+}
+
+/* ---------- 第3段階（v66）：占術体系ごとのグループ ---------- */
+.card-group{ margin: 0 0 26px; }
+.card-group-head{
+  display: grid; grid-template-columns: 40px 1fr auto; column-gap: 12px; row-gap: 2px;
+  align-items: center; padding: 0 2px 10px; margin-bottom: 14px;
+  border-bottom: 1px solid rgba(195,162,116,0.5);
+}
+.card-group-thumb{
+  grid-row: 1 / span 2; width: 40px; height: 40px; border-radius: 50%;
+  border: 1px solid rgba(195,162,116,0.55); background-color: #fbf4ee;
+  background-size: cover; background-position: center; box-shadow: inset 0 0 0 2px #fff;
+}
+.card-group-thumb[data-art="astro"]{ background-image: url("../img/card-astro.jpg"); }
+.card-group-thumb[data-art="shichu"]{ background-image: url("../img/card-shichu.jpg"); }
+.card-group-thumb[data-art="sanmei"]{ background-image: url("../img/card-sanmei.jpg"); }
+.card-group-thumb[data-art="numerology"]{ background-image: url("../img/card-numerology.jpg"); }
+.card-group-thumb[data-art="rokusei"]{ background-image: url("../img/card-rokusei.jpg"); }
+.card-group-thumb[data-art="animal"]{ background-image: url("../img/card-animal.jpg"); }
+.card-group-thumb[data-art="seimei"]{ background-image: url("../img/card-seimei.jpg"); }
+.card-group-thumb[data-art="tarot"]{ background-image: url("../img/card-tarot.jpg"); }
+.card-group-thumb[data-art="palm"]{ background-image: url("../img/card-palm.jpg"); }
+.card-group-thumb[data-art="oracle"]{ background-image: url("../img/card-oracle.jpg"); }
+.card-group-thumb[data-art="kyusei"]{ background-image: url("../img/card-kyusei.jpg"); }
+.card-group-thumb[data-art="moon"]{ background-image: url("../img/card-moon.jpg"); }
+.card-group-title{ font-family: var(--serif); font-size: 17px; font-weight: 600; color: var(--c-wine); letter-spacing: .1em; }
+.card-group-count{ font-family: var(--sans); font-size: 11.5px; color: var(--c-gold-deep); border: 1px solid rgba(195,162,116,.55); border-radius: 999px; padding: 2px 9px; white-space: nowrap; }
+.card-group-note{ grid-column: 2 / span 2; font-size: 12px; color: var(--c-ink-mute); line-height: 1.7; }
+.card-group .fortune-card:last-child{ margin-bottom: 0; }
+@media (max-width: 720px){
+  .card-group-head{ grid-template-columns: 34px 1fr auto; column-gap: 10px; }
+  .card-group-thumb{ width: 34px; height: 34px; }
+  .card-group-title{ font-size: 15.5px; letter-spacing: .06em; }
+  .card-group-note{ font-size: 11.5px; }
+}
+@media print{ .card-group-thumb{ display: none !important; } }
 
 /* ---------- 印刷 ---------- */
 @media print{
