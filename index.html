@@ -6,8 +6,8 @@
 <title>多角的占い診断 ― 30以上の視点で読み解く、あなたの取扱説明書</title>
 <meta name="description" content="西洋占星術・四柱推命・数秘術ほか20種類の占術・30以上の視点であなたの本来の魅力と生き方を深く読み解きます。" />
 <meta name="robots" content="noindex,nofollow" />
-<link rel="stylesheet" href="assets/css/style.css?v=70" />
-<link rel="stylesheet" href="assets/css/refined.css?v=70" />
+<link rel="stylesheet" href="assets/css/style.css?v=72" />
+<link rel="stylesheet" href="assets/css/refined.css?v=72" />
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,400;0,500;0,600;1,400;1,500&family=Shippori+Mincho:wght@400;500;600;700&family=Zen+Kaku+Gothic+New:wght@400;500;700&display=swap" rel="stylesheet">
@@ -33,6 +33,15 @@
     <p class="gate-note">※ 合い言葉がご不明な場合は、講座のご案内（LINE・メール）をご確認いただくか、講師までお問い合わせください。</p>
   </div>
 </div>
+<script>
+/* JS本体（約1MB）の読み込み前でも、ゲートを先に出し、ボタンには「準備中」を示す。
+   app.js が起動したら js-loading を外す。万一の読み込み失敗時も 8 秒で解除する。 */
+(function(){
+  try { if (localStorage.getItem('miryoku_gate_ok_v1') !== '1') { var g = document.getElementById('gate-overlay'); if (g) g.hidden = false; } } catch (e) {}
+  document.documentElement.classList.add('js-loading');
+  setTimeout(function(){ document.documentElement.classList.remove('js-loading'); }, 8000);
+})();
+</script>
 
 <header class="site-header">
   <button class="brand" data-go="screen-top" type="button" aria-label="TOPへ戻る">
@@ -42,7 +51,7 @@
   <nav class="site-nav">
     <button class="nav-btn nav-top" data-go="screen-top">TOP</button>
     <button class="nav-btn" data-go="screen-input">入力</button>
-    <button class="nav-btn" data-go="screen-menu">診断</button>
+    <button class="nav-btn" data-go="screen-quick">結果</button>
     <button class="nav-btn" data-go="screen-faq"><span class="nav-full">よくあるご質問</span><span class="nav-short">質問</span></button>
     <button class="nav-btn text-size-btn" id="btn-text-size" aria-label="文字の大きさを変える" title="文字の大きさを変える">あ<sup id="text-size-mark">標準</sup></button>
   </nav>
@@ -69,6 +78,9 @@
       </h1>
       <p class="hero-sub">大人女性のための、人生の取扱説明書</p>
 
+      <button class="btn-primary btn-large" data-go="screen-input">診断をはじめる</button>
+      <p class="hero-note">生年月日だけで診断できます　/　結果はその場で・PDFでも保存可能</p>
+
       <div class="hero-pillars">
         <div class="pillar">
           <div class="pillar-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"><circle cx="12" cy="12" r="8.5"/><circle cx="12" cy="12" r="3"/><path d="M12 1.5v3M12 19.5v3M1.5 12h3M19.5 12h3"/></svg></div>
@@ -87,8 +99,6 @@
         </div>
       </div>
 
-      <button class="btn-primary btn-large" data-go="screen-input">診断をはじめる</button>
-      <p class="hero-note">所要時間 約10〜15分　/　結果はPDFでダウンロード可能</p>
 
       <div class="hero-features">
         <div class="feature">
@@ -161,6 +171,31 @@
           </div>
           <p class="hour-hint">分かると<strong>月星座とアセンダント</strong>まで読めます。母子手帳やご家族の記憶で分かることも。2時間ほどの誤差なら、読みの方向性は大きく変わりません。</p>
         </div>
+        <div class="form-divider"><span>今いちばん気になっていること</span></div>
+
+        <div class="form-row">
+          <label>悩みのテーマ<span class="opt">任意</span></label>
+          <div class="form-inline worry-tags">
+            <label><input type="radio" name="worry-cat" value="love" /> 恋愛・パートナー</label>
+            <label><input type="radio" name="worry-cat" value="work" /> 仕事・キャリア</label>
+            <label><input type="radio" name="worry-cat" value="money" /> お金・豊かさ</label>
+            <label><input type="radio" name="worry-cat" value="beauty" /> 美容・印象</label>
+            <label><input type="radio" name="worry-cat" value="health" /> 健康・体</label>
+            <label><input type="radio" name="worry-cat" value="relation" /> 人間関係</label>
+            <label><input type="radio" name="worry-cat" value="family" /> 家族</label>
+            <label><input type="radio" name="worry-cat" value="future" /> 将来・進路</label>
+          </div>
+        </div>
+
+        <div class="form-row">
+          <label>具体的な悩み・気がかり<span class="opt">任意・自由記述</span></label>
+          <textarea id="in-worry-text" rows="4" placeholder="例：今のお仕事を続けるか、思い切って独立するか迷っています。"></textarea>
+          <p class="form-hint">入力された内容はサーバーに送信されません。診断のヒントとしてのみ使われます。</p>
+        </div>
+
+        <details class="form-more">
+          <summary><span class="form-more-title">さらに詳しく診てもらう</span><span class="form-more-sub">任意：出生地・性別・お顔と手のひらの写真</span></summary>
+          <div class="form-more-body">
         <div class="form-row">
           <label>生まれた都道府県<span class="opt">任意・アセンダント精度向上</span></label>
           <div class="form-inline">
@@ -247,32 +282,14 @@
           <p class="form-hint">指を軽く開き、手のひら全体が映るように撮影してください（利き手推奨）。写真は端末内のみで保存され、外部送信や自動分析はされません。今後のアップデートでAIによる手相分析機能を追加予定です。</p>
         </div>
 
-        <div class="form-divider"><span>今いちばん気になっていること</span></div>
-
-        <div class="form-row">
-          <label>悩みのテーマ<span class="opt">任意</span></label>
-          <div class="form-inline worry-tags">
-            <label><input type="radio" name="worry-cat" value="love" /> 恋愛・パートナー</label>
-            <label><input type="radio" name="worry-cat" value="work" /> 仕事・キャリア</label>
-            <label><input type="radio" name="worry-cat" value="money" /> お金・豊かさ</label>
-            <label><input type="radio" name="worry-cat" value="beauty" /> 美容・印象</label>
-            <label><input type="radio" name="worry-cat" value="health" /> 健康・体</label>
-            <label><input type="radio" name="worry-cat" value="relation" /> 人間関係</label>
-            <label><input type="radio" name="worry-cat" value="family" /> 家族</label>
-            <label><input type="radio" name="worry-cat" value="future" /> 将来・進路</label>
           </div>
-        </div>
-
-        <div class="form-row">
-          <label>具体的な悩み・気がかり<span class="opt">任意・自由記述</span></label>
-          <textarea id="in-worry-text" rows="4" placeholder="例：今のお仕事を続けるか、思い切って独立するか迷っています。"></textarea>
-          <p class="form-hint">入力された内容はサーバーに送信されません。診断のヒントとしてのみ使われます。</p>
-        </div>
+        </details>
 
         <div class="form-actions">
           <button type="button" class="btn-secondary" data-go="screen-top">戻る</button>
           <button type="submit" class="btn-primary no-icon">この情報で診断する</button>
         </div>
+        <p class="form-required-note">必須は生年月日だけです。ほかは分かる範囲で構いません。</p>
       </form>
     </div>
   </section>
@@ -280,18 +297,18 @@
   <!-- ===================== 診断メニュー ===================== -->
   <section class="screen" id="screen-menu">
     <div class="container">
-      <h2 class="section-title">診断メニュー</h2>
-      <p class="section-lead">気になるカテゴリから順に進めてください。全て終えると総合レポートをPDFで保存できます。</p>
+      <h2 class="section-title">7つの深掘り</h2>
+      <p class="section-lead">あなたの結果を、占術ごとに確かめる章です。順番に読む必要はなく、気になるものだけで構いません。総合レポートはいつでも保存できます。</p>
 
       <div class="profile-summary" id="profile-summary"></div>
 
       <div id="history-block"></div>
 
       <button type="button" class="quick-card card-btn" id="btn-quick-view">
-        <div class="quick-badge">まずはここから</div>
-        <div class="quick-title">30秒で分かる、あなた</div>
-        <div class="quick-desc">20種類の占術を突き合わせて、<strong>複数の占術が共通して示す傾向</strong>と<strong>あなたの中の二面性</strong>を先にお伝えします。1分もかかりません。</div>
-        <div class="quick-go">結果を見る →</div>
+        <div class="quick-badge">あなたの結果</div>
+        <div class="quick-title">結果をもう一度見る</div>
+        <div class="quick-desc">20種類の占術を突き合わせた<strong>一言の結論</strong>と、<strong>共通する傾向・二面性・今月の流れ</strong>。ここが出発点です。</div>
+        <div class="quick-go">結果へ →</div>
       </button>
 
       <div class="menu-grid">
@@ -416,7 +433,7 @@
 
       <div class="report-cta">
         <h3>総合診断レポート — あなたの人生の取扱説明書</h3>
-        <p>診断が一通り終わったら、本質・表面・心の歪み・人生ステージ・美の才能・開運行動・人生ロードマップをまとめた1冊のPDFレポートをお持ち帰りいただけます。あなたが本当に輝く生き方を、1冊の本に。</p>
+        <p>結論・7つの根拠・お悩みへの処方箋・今月の流れを1冊にまとめたレポートです。<strong>上の章を全部読まなくても、いつでも作れます。</strong>PDFで保存してお持ち帰りください。</p>
         <button class="btn-primary btn-large" id="btn-show-report">総合レポートを見る</button>
       </div>
     </div>
@@ -425,7 +442,7 @@
   <!-- ===================== カテゴリ結果 ===================== -->
   <section class="screen" id="screen-category">
     <div class="container">
-      <button class="btn-back" data-go="screen-menu">← 診断メニューへ戻る</button>
+      <button class="btn-back" data-go="screen-menu">← 7つの深掘りへ戻る</button>
       <div id="category-content"></div>
       <div class="form-actions">
         <button class="btn-secondary" data-go="screen-menu">メニューへ戻る</button>
@@ -445,7 +462,7 @@
           <button type="button" class="next-card card-btn" id="btn-next-report">
             <span class="next-label">おすすめ</span>
             <span class="next-title">1冊にまとめて読む</span>
-            <span class="next-desc">上の結論を7つの占術がどう支えているか、お悩みへの処方箋、今月の流れまでを1冊に。PDFで保存できます。</span>
+            <span class="next-desc">上の結論を7つの占術がどう支えているか、今月の流れ、お悩みを選んだ方には処方箋までを1冊に。PDFで保存できます。</span>
             <span class="next-go">総合レポートを見る</span>
           </button>
           <button type="button" class="next-card card-btn" data-go="screen-menu">
@@ -466,7 +483,7 @@
   <!-- ===================== 相性診断 ===================== -->
   <section class="screen" id="screen-compat">
     <div class="container">
-      <button class="btn-back" data-go="screen-menu">← 診断メニューへ戻る</button>
+      <button class="btn-back" data-go="screen-quick">← 結果へ戻る</button>
       <h2 class="section-title">2人の関係を知る</h2>
       <p class="section-lead">お相手の生年月日から占術を計算し、あなたの結果と突き合わせます。点数ではなく「何が同じで、何が違って、どう噛み合うか」をお伝えします。<br>お相手の情報もこの端末内だけで処理され、保存も送信もされません。</p>
 
@@ -559,7 +576,7 @@
   <!-- ===================== 総合レポート ===================== -->
   <section class="screen" id="screen-report">
     <div class="container">
-      <button class="btn-back" data-go="screen-menu">← 診断メニューへ戻る</button>
+      <button class="btn-back" data-go="screen-quick">← 結果へ戻る</button>
       <div id="report-content"></div>
       <div class="form-actions report-actions">
         <button class="btn-secondary" data-go="screen-menu">メニューへ戻る</button>
@@ -597,15 +614,15 @@
   </div>
 </div>
 
-<script src="assets/js/ephemeris.js?v=70"></script>
-<script src="assets/js/seimei-strokes.js?v=70"></script>
-<script src="assets/js/calc.js?v=70"></script>
-<script src="assets/js/content.js?v=70"></script>
+<script src="assets/js/ephemeris.js?v=72"></script>
+<script src="assets/js/seimei-strokes.js?v=72"></script>
+<script src="assets/js/calc.js?v=72"></script>
+<script src="assets/js/content.js?v=72"></script>
 <script src="assets/js/animal60.js?v=18"></script>
-<script src="assets/js/photo-analysis.js?v=70"></script>
-<script src="assets/js/integration-core.js?v=70"></script>
-<script src="assets/js/local-synthesis.js?v=70"></script>
-<script src="assets/js/app.js?v=70"></script>
+<script src="assets/js/photo-analysis.js?v=72"></script>
+<script src="assets/js/integration-core.js?v=72"></script>
+<script src="assets/js/local-synthesis.js?v=72"></script>
+<script src="assets/js/app.js?v=72"></script>
 
 </body>
 </html>

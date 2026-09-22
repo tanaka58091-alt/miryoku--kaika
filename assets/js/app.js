@@ -226,6 +226,7 @@
         return;
       }
       if (dest === 'screen-menu') updateMenuStatus();
+      if (dest === 'screen-quick') { showQuickResult(); return; }   // v=71：結果画面は必ず描画してから出す
       showScreen(dest);
     }
 
@@ -322,8 +323,13 @@
     if (!STATE.profile) { showScreen('screen-input'); return; }
     try {
       const calc = computeAll();
+      // v=72：結果画面でも履歴に記録する。以前はレポートを作ったときだけ記録しており、
+      //   結果画面で終える大半の人は履歴にも残らず、感想（当てはまり度）も集められなかった。
+      try { saveToHistory(buildIntegration(calc)); } catch (err) { console.error('[history]', err); }
       $('#quick-content').innerHTML = (integrationSection(calc, { standalone: true })
-        || '<p class="integ-none">サマリーを生成できませんでした。</p>') + periodSection(calc, { compact: true });
+        || '<p class="integ-none">サマリーを生成できませんでした。</p>')
+        + periodSection(calc, { compact: true })
+        + `<div class="result-feedback">${feedbackBlock()}</div>`;
     } catch (err) {
       console.error('[quick]', err);
       $('#quick-content').innerHTML = '<p class="integ-none">サマリーの生成中にエラーが発生しました。</p>';
@@ -353,11 +359,11 @@
       if (STATE.results[cat]) {
         card.classList.add('done');
         status.classList.add('done');
-        status.textContent = '診断済み（再診断できます）';
+        status.textContent = '読みました';
       } else {
         card.classList.remove('done');
         status.classList.remove('done');
-        status.textContent = '未診断';
+        status.textContent = '';                 // v=71：「未診断」は義務感を生むので表示しない
       }
     });
   }
@@ -425,8 +431,9 @@
   function showResumeNotice(savedAt){
     const old = document.getElementById('resume-notice');
     if (old) old.remove();
-    const container = document.querySelector('#screen-menu .container');
-    const anchor = document.getElementById('profile-summary');
+    // v=72：再訪時は結果画面に着地するため、通知も結果画面の先頭に出す
+    const container = document.querySelector('#screen-quick .container');
+    const anchor = document.getElementById('quick-content');
     if (!container || !anchor) return;
     let dateLabel = '';
     try {
@@ -439,7 +446,7 @@
     div.id = 'resume-notice';
     div.style.cssText = 'background:linear-gradient(135deg,#fff8f0 0%,#fdeede 100%);border:1px solid #e6c8a8;border-radius:10px;padding:.9rem 1.1rem;margin:0 0 1.2rem 0;display:flex;flex-wrap:wrap;align-items:center;gap:.6rem;justify-content:space-between;';
     div.innerHTML = `
-      <span style="color:#8a5a2c;font-size:14px;">✦ 前回の続きから再開しました${escapeHtml(dateLabel)}。診断済みのメニューはそのまま見られます。</span>
+      <span style="color:#8a5a2c;font-size:14px;">✦ 前回の結果を表示しています${escapeHtml(dateLabel)}。</span>
       <button type="button" id="btn-reset-diagnosis" style="background:none;border:1px solid #c89060;color:#8a5a2c;border-radius:999px;padding:.35rem .9rem;font-size:12px;cursor:pointer;">最初からやり直す</button>
     `;
     container.insertBefore(div, anchor);
@@ -493,7 +500,9 @@
     renderProfileSummary();
     updateMenuStatus();
     showResumeNotice(saved.savedAt);
-    showScreen('screen-menu');
+    // v=71：再訪時は診断メニューではなく、自分の結果に着地する。
+    //   以前は「診断メニュー（7択）」に戻されており、結果を見るまでにもう一度迷っていた。
+    try { showQuickResult(); } catch (err) { console.error('[restore→result]', err); showScreen('screen-menu'); }
     return true;
   }
 
@@ -1857,7 +1866,7 @@
     const t1 = g.top[0], t2 = g.top[1], t3 = g.top[2];
     const phrase = (t) => t ? DEFS[t.tag].phrase : '';
     const summaryLines = [
-      `<p class="sum-lead">${escapeHtml(name)}を、${g.usedSources.length}種類の占術から一言で言うと——</p>`,
+      `<p class="sum-lead">${escapeHtml(name)}を、${g.usedSources.length}の視点から一言で言うと——</p>`,
       `<p class="sum-hero">「${escapeHtml(phrase(t1))}」</p>`,
       t2 ? `<p class="sum-add">${escapeHtml((D.TAG_TAIL && D.TAG_TAIL[t2.tag]) || `そこに${DEFS[t2.tag].label}が重なります。`)}${t3 ? `<span class="sum-third">３つめの傾向は<strong>${escapeHtml(DEFS[t3.tag].label)}</strong>。</span>` : ''}</p>` : ''
     ].join('');
@@ -1868,7 +1877,8 @@
       : '';
 
     // --- 共通する傾向 ---
-    const commonHtml = g.common.length ? g.common.slice(0, 5).map(item => {
+    const standalone = !!(opts && opts.standalone);
+    const commonHtml = g.common.length ? g.common.slice(0, standalone ? 3 : 5).map(item => {
       const def = DEFS[item.tag];
       const b = CONF_BADGE[item.tier] || CONF_BADGE.medium;
       return `
@@ -1929,13 +1939,13 @@
       `一言でいうと：${DEFS[t1.tag].phrase}`,
       `上位3つ：${g.top.slice(0,3).map(t => DEFS[t.tag].label).join('・')}`,
       dual0 ? `二面性：${DEFS[dual0.strong.tag].label} × ${DEFS[dual0.weak.tag].label}` : '',
-      `（${g.usedSources.length}種類の占術を突き合わせた結果）`
+      `（20種類の占術・${g.usedSources.length}の視点を突き合わせた結果）`
     ].filter(Boolean).join('\n');
 
     return `
       <div class="report-section integ-section">
         <h2>${(opts && opts.standalone) ? 'あなたの結果' : '00　30秒で分かる、あなた'}</h2>
-        <div class="section-sub">${g.usedSources.length}種類の占術を突き合わせて見えた、共通点と二面性</div>
+        <div class="section-sub">20種類の占術から得た${g.usedSources.length}の視点を突き合わせて見えた、共通点と二面性</div>
         ${strictNote}
 
         <div class="sum-box">
@@ -1952,14 +1962,22 @@
         <h3 class="integ-h3">場面によって変わる、あなたの顔</h3>
         <div class="scene-grid">${sceneHtml}</div>
 
-        ${decisionHtml(g)}
-        ${behaviorHtml(g)}
-
         <h3 class="integ-h3">${escapeHtml(name)}の取扱説明書</h3>
         ${manualHtml}
         ${singleHtml}
 
-        ${domainHtml(g, name)}
+        ${standalone ? `
+        <details class="card-detail result-more">
+          <summary><span class="card-open">決め方・行動・領域別の読み解きも見る</span><span class="card-close">閉じる</span></summary>
+          <div class="card-full">
+            ${decisionHtml(g)}
+            ${behaviorHtml(g)}
+            ${domainHtml(g, name)}
+          </div>
+        </details>` : `
+        ${decisionHtml(g)}
+        ${behaviorHtml(g)}
+        ${domainHtml(g, name)}`}
 
         <div class="share-box">
           <div class="share-head">受講生仲間と比べてみる</div>
@@ -1969,7 +1987,7 @@
         </div>
 
         <div class="integ-method">
-          この章は、生年月日などから計算した<strong>${g.usedSources.length}種類の占術結果</strong>にそれぞれ特徴タグを付け、何種類の占術が同じ方向を指しているかを機械的に集計して構成しています。占いの結果を決めつけとしてではなく、<strong>自分を考えるための材料</strong>としてお使いください。
+          この章は、生年月日などから計算した<strong>${g.usedSources.length}の視点（占術結果）</strong>にそれぞれ特徴タグを付け、何種類の占術が同じ方向を指しているかを機械的に集計して構成しています。占いの結果を決めつけとしてではなく、<strong>自分を考えるための材料</strong>としてお使いください。
         </div>
       </div>
     `;
@@ -4631,6 +4649,7 @@ ${repDetail('07', 'あなたの人生ロードマップ', '設計図 ／ 手放�
   // 保存データがあれば続きから再開、なければTOPへ。
   // 初期画面は履歴に積まず、現在の履歴エントリに紐づける（起点）。
   setupPdfGuide();
+  try { document.documentElement.classList.remove('js-loading'); } catch (_) {}
   suppressHistory = true;
   if (!restoreState()) showScreen('screen-top');
   suppressHistory = false;
