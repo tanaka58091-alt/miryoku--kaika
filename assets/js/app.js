@@ -277,8 +277,13 @@
     const sexEl = document.querySelector('input[name="sex"]:checked');
     const sex = sexEl ? sexEl.value : 'female';
 
-    if (!y || !m || !d || y < 1900 || y > 2030 || m < 1 || m > 12 || d < 1 || d > 31) {
-      alert('生年月日を正しく入力してください');
+    const thisYear = new Date().getFullYear();
+    if (!y || !m || !d || y < 1900 || y > thisYear || m < 1 || m > 12 || d < 1 || d > 31) {
+      alert('生年月日を正しく入力してください。\n西暦は1900年から' + thisYear + '年までです。');
+      return;
+    }
+    if (!isRealDate(y, m, d)) {
+      alert(m + '月' + d + '日は存在しない日付です。\nご確認のうえ、もう一度ご入力ください。');
       return;
     }
 
@@ -658,6 +663,14 @@
         </div>
         <p class="fb-note">※ 回答はこの端末内にのみ保存されます。占いの当たり外れを判定するものではなく、次に読み返すときの手がかりとしてお使いください。</p>
       </div>`;
+  }
+
+  // v=73：実在する日付かを確かめる。
+  //   以前は 1〜31 の範囲しか見ておらず、2月30日のような日付が
+  //   JavaScript の Date で3月へ繰り上がり、黙って別の日の結果を出していた。
+  function isRealDate(y, m, d){
+    const dt = new Date(y, m - 1, d);
+    return dt.getFullYear() === y && dt.getMonth() === m - 1 && dt.getDate() === d;
   }
 
   // ---------- 共通: 各占いの計算結果オブジェクトを生成 ----------
@@ -1295,6 +1308,26 @@
     const p = STATE.profile || {};
     const nameDisp = (p.sei || p.mei) ? `${escapeHtml(p.sei)}${escapeHtml(p.mei)} 様` : 'あなた';
     const birth = (p.y && p.m && p.d) ? `${p.y}年${p.m}月${p.d}日${p.hour !== null && p.hour !== undefined && p.hour !== '' ? ' '+p.hour+'時頃' : ''}生まれ` : '';
+
+    // v=74（設計監査）：核の言い切りは「本質の章（cat1）」だけに置く。
+    //   以前は全7章の冒頭で同じ核を5行にわたって繰り返しており、
+    //   「同じ結論が何度も出てくる」という分かりにくさの残りの原因になっていた。
+    //   他の章では、その章固有の書き出しと「あなただけの組み合わせ」という位置づけだけを残す。
+    if (catId !== 'cat1') {
+      return `
+      <div class="fortune-card personal-sig-card personal-sig-compact" style="background:linear-gradient(135deg,#fff8f3 0%,#ffeee1 100%);border:1px solid #e6c8a8;">
+        <div class="fortune-head">
+          <div class="fortune-name">この章は、${nameDisp}だけのために</div>
+          <div class="fortune-result">${escapeHtml(z.name)} × ${escapeHtml(stem.name || '')} × ${escapeHtml(animal.name || '')}</div>
+        </div>
+        <div class="fortune-body">
+          <p class="personal-sig-text" style="line-height:1.9;">${escapeHtml(opener)}</p>
+          <p class="personal-sig-tail" style="font-size:12px;color:#8a6a4a;margin-top:.6rem;">
+            ${escapeHtml(birth)}という、宇宙でただ一通りの組み合わせから読んでいます。
+          </p>
+        </div>
+      </div>`;
+    }
 
     return `
       <div class="fortune-card personal-sig-card" style="background:linear-gradient(135deg,#fff8f3 0%,#ffeee1 100%);border:1px solid #e6c8a8;">
@@ -4198,8 +4231,12 @@
     const y = parseInt($('#pt-year').value, 10);
     const m = parseInt($('#pt-month').value, 10);
     const d = parseInt($('#pt-day').value, 10);
-    if (!y || !m || !d || y < 1900 || y > 2030 || m < 1 || m > 12 || d < 1 || d > 31) {
-      alert('お相手の生年月日を正しく入力してください');
+    if (!y || !m || !d || y < 1900 || y > new Date().getFullYear() || m < 1 || m > 12 || d < 1 || d > 31) {
+      alert('お相手の生年月日を正しく入力してください。');
+      return;
+    }
+    if (!isRealDate(y, m, d)) {
+      alert(m + '月' + d + '日は存在しない日付です。\nご確認のうえ、もう一度ご入力ください。');
       return;
     }
     const hourEl = $('#pt-hour');
